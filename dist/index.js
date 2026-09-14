@@ -19,13 +19,24 @@ async function main() {
         logger_1.logger.info('Prisma SQLite Database connected successfully.');
     }
     catch (err) {
-        logger_1.logger.error(`Database connection failed: ${err.message}`);
+        logger_1.logger.error(`Database connection warning: ${err?.message || err}`);
     }
     // 2. Initialize Telegram Bot
-    const bot = await (0, bot_1.initBot)();
+    let bot = null;
+    try {
+        bot = await (0, bot_1.initBot)();
+    }
+    catch (err) {
+        logger_1.logger.error(`Bot initialization failed: ${err?.message || err}`);
+    }
     // 3. Start node-cron Scheduler
-    await scheduler_1.scheduler.start();
-    logger_1.logger.info('node-cron Scheduler initialized.');
+    try {
+        await scheduler_1.scheduler.start();
+        logger_1.logger.info('node-cron Scheduler initialized.');
+    }
+    catch (err) {
+        logger_1.logger.error(`Scheduler startup failed: ${err?.message || err}`);
+    }
     // 4. Render Keep-Alive HTTP Health Server (Prevents Render Free Tier from Sleeping)
     const port = process.env.PORT || 3000;
     const server = http_1.default.createServer((req, res) => {
@@ -57,22 +68,28 @@ async function main() {
             logger_1.logger.info(`🔄 Auto-ping self keep-alive request sent to ${pingUrl}`);
         }
         catch (err) {
-            logger_1.logger.warn(`Auto-ping self keep-alive attempt failed: ${err.message}`);
+            logger_1.logger.warn(`Auto-ping self keep-alive attempt failed: ${err?.message || err}`);
         }
     });
     if (!bot || !env_1.env.BOT_TOKEN) {
-        logger_1.logger.warn('BOT_TOKEN is missing in .env. Bot polling skipped.');
+        logger_1.logger.warn('⚠️ BOT_TOKEN is missing in environment variables. Bot polling skipped, HTTP server remains active.');
         return;
     }
     // 6. Start Bot Polling
     logger_1.logger.info('Starting grammY Bot Polling...');
-    bot.start({
-        onStart: (info) => {
-            logger_1.logger.info(`Bot @${info.username} is running and listening for commands!`);
-        },
-    });
+    try {
+        await bot.start({
+            onStart: (info) => {
+                logger_1.logger.info(`Bot @${info.username} is running and listening for commands!`);
+            },
+        });
+    }
+    catch (err) {
+        logger_1.logger.error(`Bot start polling failed: ${err?.message || err}`);
+    }
 }
 main().catch((err) => {
-    logger_1.logger.error(`Fatal application startup error: ${err.message}`);
+    console.error('Fatal application startup error:', err);
+    logger_1.logger.error(`Fatal application startup error: ${err?.stack || err?.message || err}`);
     process.exit(1);
 });
