@@ -1,0 +1,236 @@
+import { Composer } from 'grammy';
+import { agent } from '../agent/agent';
+import { repository } from '../database/schema';
+import { scheduler } from '../scheduler/scheduler';
+import {
+  getMainAdminKeyboard,
+  getTopicPickerKeyboard,
+  getAutoPostKeyboard,
+  getHistoryFilterKeyboard,
+} from './keyboards';
+import { LEGAL_TOPICS, TOPIC_ICONS } from '../agent/topicSelector';
+import { env } from '../config/env';
+import { logger } from '../utils/logger';
+
+export const commandsComposer = new Composer();
+
+// Check Admin Authorization Middleware
+commandsComposer.use(async (ctx, next) => {
+  // PUBLIC BYPASS: Allow ALL channel subscribers to click interactive quiz answer buttons (ans:...)
+  if (ctx.callbackQuery?.data?.startsWith('ans:')) {
+    return await next();
+  }
+
+  // RESTRICT ADMIN COMMANDS & CONTROL PANEL ONLY TO ADMIN_ID
+  if (env.ADMIN_ID && ctx.from?.id && ctx.from.id !== env.ADMIN_ID) {
+    logger.warn(`Unauthorized access attempt to admin feature by user ${ctx.from.id}`);
+    if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery({ text: '⚠️ Kechirasiz, bu bot paneli faqat Administrator uchun!', show_alert: true });
+    } else {
+      await ctx.reply('⚠️ Kechirasiz, bu bot boshqaruvi faqat Administrator uchun ajratilgan.');
+    }
+    return;
+  }
+  await next();
+});
+
+commandsComposer.command('start', async (ctx) => {
+  const text = (
+    `🤖 <b>O‘zbekiston Huquqi AI Autonomous Content Agent Botiga Xush Kelibsiz!</b>\n\n` +
+    `Ushbu bot avtomatik ravishda O‘zbekiston Respublikasi qonunchiligiga oid ` +
+    `professional rasmli testlar tayyorlab, Telegram kanalga joylaydi.\n\n` +
+    `Boshqaruv panelini ochish uchun /admin buyrug'ini yuboring.`
+  );
+  await ctx.reply(text, { reply_markup: getMainAdminKeyboard(), parse_mode: 'HTML' });
+});
+
+commandsComposer.command('admin', async (ctx) => {
+  await renderDashboard(ctx);
+});
+
+commandsComposer.hears('⚙️ SOZLAMALAR', async (ctx) => {
+  await renderDashboard(ctx);
+});
+
+async function renderDashboard(ctx: any) {
+  const stats = await repository.getStatistics();
+  const autoOnStr = await repository.getSetting('auto_post_enabled', String(env.AUTO_POST));
+  const isAuto = autoOnStr.toLowerCase() === 'true';
+
+  const dashboard = (
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚖️ <b>HUQUQIY AI CONTENT AGENT</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `📊 <b>Bugungi testlar:</b> ${stats.todayTotalCount} ta (Avto: ${stats.todayAutoCount}, Qo'lda: ${stats.todayManualCount})\n` +
+    `📚 <b>Jami testlar:</b> ${stats.totalCount} ta\n` +
+    `🤖 <b>AI Agent holati:</b> ${isAuto ? '🟢 ON' : '🔴 OFF'}\n` +
+    `📡 <b>Kanal statusi:</b> CONNECTED (${env.CHANNEL_ID || 'Kanal'})\n\n` +
+    `Boshqarish uchun quyidagi tugmalardan foydalaning:`
+  );
+  await ctx.reply(dashboard, { reply_markup: getMainAdminKeyboard(), parse_mode: 'HTML' });
+}
+
+commandsComposer.command('newtest', async (ctx) => {
+  await ctx.reply('📚 <b>Test yaratish uchun huquqiy mavzuni tanlang:</b>', {
+    reply_markup: getTopicPickerKeyboard(),
+    parse_mode: 'HTML',
+  });
+});
+
+commandsComposer.hears('➕ YANGI TEST', async (ctx) => {
+  await ctx.reply('📚 <b>Test yaratish uchun huquqiy mavzuni tanlang:</b>', {
+    reply_markup: getTopicPickerKeyboard(),
+    parse_mode: 'HTML',
+  });
+});
+
+commandsComposer.command('post', async (ctx) => {
+  await handlePostNow(ctx);
+});
+
+commandsComposer.hears('🚀 HOZIR JOYLASH', async (ctx) => {
+  await handlePostNow(ctx);
+});
+
+async function handlePostNow(ctx: any) {
+  const statusMsg = await ctx.reply(
+    `🚀 <b>HOZIR JOYLASH jarayoni boshlandi:</b>\n` +
+    `1. AI mavzu va qonuniy faktlarni izlamoqda...\n` +
+    `2. Test va izoh yaratilmoqda...\n` +
+    `3. AI Fact-Checker tekshirmoqda...\n` +
+    `4. Telegram kanalga yuborilmoqda...`,
+    { parse_mode: 'HTML' }
+  );
+
+  const result = await agent.runPipeline({
+    requestedTopic: undefined,
+    isAuto: false,
+    publishImmediately: true,
+  });
+
+  if (result.success && result.test) {
+    const text = (
+      `✅ <b>TEST DARHOL KANALGA JOYLANDI!</b>\n\n` +
+      `<b>Test ID:</b> #${result.test.id}\n` +
+      `<b>Mavzu:</b> ${result.test.topic}\n` +
+      `<b>Savol:</b> ${result.test.question.substring(0, 100)}...`
+    );
+    await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, text, { parse_mode: 'HTML' });
+  } else {
+    await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, `❌ <b>Hozir joylashda xatolik:</b>\n${result.message}`, { parse_mode: 'HTML' });
+  }
+}
+
+commandsComposer.command('auto', async (ctx) => {
+  await renderAutoPostMenu(ctx);
+});
+
+commandsComposer.hears('⏰ AVTO POST', async (ctx) => {
+  await renderAutoPostMenu(ctx);
+});
+
+async function renderAutoPostMenu(ctx: any) {
+  const autoOnStr = await repository.getSetting('auto_post_enabled', String(env.AUTO_POST));
+  const quietOnStr = await repository.getSetting('quiet_hours_enabled', String(env.QUIET_HOURS_ENABLED));
+  const peakOnStr = await repository.getSetting('peak_hours_mode', String(env.PEAK_HOURS_MODE));
+  const interval = await repository.getSetting('post_interval_hours', String(env.POST_INTERVAL_HOURS));
+
+  const isAuto = autoOnStr.toLowerCase() === 'true';
+  const isQuiet = quietOnStr.toLowerCase() === 'true';
+  const isPeak = peakOnStr.toLowerCase() === 'true';
+
+  const text = (
+    `🤖 <b>Avtomatik posting boshqaruvi</b>\n\n` +
+    `<b>Status:</b> ${isAuto ? '🟢 Yoqilgan' : '🔴 O‘chirilgan'}\n` +
+    `<b>Rejim:</b> ${isPeak ? '⭐ Peak Hours (09:00, 13:00, 18:00, 21:00)' : `⏱ Har ${interval} soatda`}\n` +
+    `<b>🌙 Tungi Jimlik (Quiet Hours):</b> ${isQuiet ? '🟢 Yoqilgan (23:00 - 07:00)' : '🔴 O‘chirilgan'}`
+  );
+  await ctx.reply(text, { reply_markup: getAutoPostKeyboard(isAuto, isQuiet, isPeak), parse_mode: 'HTML' });
+}
+
+commandsComposer.command('stats', async (ctx) => {
+  await renderStats(ctx);
+});
+
+commandsComposer.hears('📊 STATISTIKA', async (ctx) => {
+  await renderStats(ctx);
+});
+
+async function renderStats(ctx: any) {
+  const stats = await repository.getStatistics();
+  const topicLines: string[] = [];
+
+  if (stats.topicDistribution) {
+    for (const [top, cnt] of Object.entries(stats.topicDistribution)) {
+      const icon = TOPIC_ICONS[top] || '⚖️';
+      topicLines.push(`  ${icon} ${top}: ${cnt} ta`);
+    }
+  }
+
+  const topicStr = topicLines.length > 0 ? topicLines.join('\n') : "  Ma'lumot yo'q";
+
+  const text = (
+    `📊 <b>AGENT STATISTIKA DASHBOARD</b>\n\n` +
+    `📅 <b>Bugun:</b>\n` +
+    `• Avtomatik testlar: ${stats.todayAutoCount} ta\n` +
+    `• Qo'lda chiqarilgan: ${stats.todayManualCount} ta\n` +
+    `• Jami bugun: ${stats.todayTotalCount} ta\n\n` +
+    `📆 <b>Oxirgi 7 kun:</b>\n` +
+    `• Jami haftalik: ${stats.weekTotalCount} ta\n` +
+    `• Eng ko'p ishlatilgan mavzu: 🏆 ${stats.mostUsedTopic}\n\n` +
+    `📈 <b>Umumiy ko'rsatkichlar:</b>\n` +
+    `• Jami yaratilgan testlar: ${stats.totalCount} ta\n` +
+    `• Muvaffaqiyatli postlar: ${stats.publishedCount} ta\n` +
+    `• AI Test generatsiyalari: ${stats.aiGenerationCount} marta\n` +
+    `• Takroriy (Duplicate) oldi olingan: 🛡 ${stats.duplicatePreventedCount} ta\n\n` +
+    `📚 <b>Mavzular bo'yicha taqsimot:</b>\n${topicStr}`
+  );
+  await ctx.reply(text, { reply_markup: getMainAdminKeyboard(), parse_mode: 'HTML' });
+}
+
+commandsComposer.command('history', async (ctx) => {
+  await renderHistory(ctx);
+});
+
+commandsComposer.hears('📝 TESTLAR', async (ctx) => {
+  await renderHistory(ctx);
+});
+
+async function renderHistory(ctx: any) {
+  const { items, total } = await repository.getRecentTests('all', undefined, 10, 0);
+
+  if (!items || items.length === 0) {
+    await ctx.reply('📝 <b>Testlar tarixi bo\'sh.</b>', { reply_markup: getHistoryFilterKeyboard(), parse_mode: 'HTML' });
+    return;
+  }
+
+  const lines = [`📝 <b>Testlar tarixi - Jami: ${total} ta</b>\n`];
+  for (const it of items) {
+    const statusIcon = it.status === 'published' ? '✅' : it.status === 'pending_approval' ? '⏳' : '❌';
+    lines.push(`${statusIcon} <b>#${it.id}</b> [${it.topic}] - <i>${it.createdAt.toISOString().substring(0, 16)}</i>\n   ❓ ${it.question.substring(0, 50)}...\n`);
+  }
+
+  await ctx.reply(lines.join('\n'), { reply_markup: getHistoryFilterKeyboard(), parse_mode: 'HTML' });
+}
+
+commandsComposer.hears('📚 MAVZULAR', async (ctx) => {
+  const counts = await repository.getTopicCounts();
+  const lines = ['📚 <b>O‘zbekiston Huquqi Mavzulari:</b>\n'];
+  LEGAL_TOPICS.forEach((top, idx) => {
+    const icon = TOPIC_ICONS[top] || '⚖️';
+    const cnt = counts[top] || 0;
+    lines.push(`${idx + 1}. ${icon} <b>{top}</b> (${cnt} ta post)`);
+  });
+
+  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
+});
+
+commandsComposer.command('stop', async (ctx) => {
+  await scheduler.setAutoStatus(false);
+  await ctx.reply('🔴 <b>Avtomatik posting to\'xtatildi (/resume orqali qayta yoqishingiz mumkin).</b>', { parse_mode: 'HTML' });
+});
+
+commandsComposer.command('resume', async (ctx) => {
+  await scheduler.setAutoStatus(true);
+  await ctx.reply('🟢 <b>Avtomatik posting qayta yoqildi!</b>', { parse_mode: 'HTML' });
+});

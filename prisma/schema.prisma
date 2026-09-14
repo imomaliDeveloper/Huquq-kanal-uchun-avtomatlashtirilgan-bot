@@ -1,0 +1,42 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Test {
+  id                Int       @id @default(autoincrement())
+  topic             String
+  question          String
+  questionHash      String    @unique
+  optionA           String
+  optionB           String
+  optionC           String
+  optionD           String
+  correctAnswer     Int
+  explanation       String
+  legalSource       String
+  sourceUrl         String?   @default("")
+  imagePath         String?   @default("")
+  telegramMessageId Int?
+  telegramPollId    String?
+  isAuto            Boolean   @default(true)
+  status            String    @default("published")
+  createdAt         DateTime  @default(now())
+  postedAt          DateTime?
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Stat {
+  id          Int      @id @default(autoincrement())
+  metricName  String
+  metricValue Int      @default(1)
+  createdAt   DateTime @default(now())
+}

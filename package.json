@@ -1,0 +1,45 @@
+{
+  "name": "legal-ai-agent",
+  "version": "1.0.0",
+  "description": "O'zbekiston Huquqi AI Autonomous Content Telegram Agent (Gemini & OpenAI)",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "npx prisma db push && tsc",
+    "start": "npx prisma db push && node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "ai",
+    "agent",
+    "gemini",
+    "legal",
+    "uzbekistan",
+    "typescript",
+    "render"
+  ],
+  "author": "Antigravity AI",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@prisma/client": "^5.10.2",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.5",
+    "grammy": "^1.21.1",
+    "node-cron": "^3.0.3",
+    "openai": "^4.28.0",
+    "winston": "^3.11.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.20",
+    "@types/node-cron": "^3.0.11",
+    "prisma": "^5.10.2",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}
