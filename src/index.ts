@@ -3,20 +3,15 @@ import axios from 'axios';
 import cron from 'node-cron';
 import { env } from './config/env';
 import { logger } from './utils/logger';
-import { prisma } from './database/db';
+import { prisma, ensureDatabaseSchema } from './database/db';
 import { initBot } from './bot/bot';
 import { scheduler } from './scheduler/scheduler';
 
 async function main() {
   logger.info('Starting Node.js + TypeScript AI Autonomous Legal Content Telegram Agent...');
 
-  // 1. Database connection check
-  try {
-    await prisma.$connect();
-    logger.info('Prisma SQLite Database connected successfully.');
-  } catch (err: any) {
-    logger.error(`Database connection warning: ${err?.message || err}`);
-  }
+  // 1. Auto-create database tables (Test, Setting, Stat) if not existing
+  await ensureDatabaseSchema();
 
   // 2. Initialize Telegram Bot
   let bot: any = null;

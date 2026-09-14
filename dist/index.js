@@ -13,14 +13,8 @@ const bot_1 = require("./bot/bot");
 const scheduler_1 = require("./scheduler/scheduler");
 async function main() {
     logger_1.logger.info('Starting Node.js + TypeScript AI Autonomous Legal Content Telegram Agent...');
-    // 1. Database connection check
-    try {
-        await db_1.prisma.$connect();
-        logger_1.logger.info('Prisma SQLite Database connected successfully.');
-    }
-    catch (err) {
-        logger_1.logger.error(`Database connection warning: ${err?.message || err}`);
-    }
+    // 1. Auto-create database tables (Test, Setting, Stat) if not existing
+    await (0, db_1.ensureDatabaseSchema)();
     // 2. Initialize Telegram Bot
     let bot = null;
     try {
