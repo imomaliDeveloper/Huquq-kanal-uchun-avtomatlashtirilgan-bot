@@ -13,7 +13,7 @@ const bot_1 = require("./bot/bot");
 const scheduler_1 = require("./scheduler/scheduler");
 async function main() {
     logger_1.logger.info('Starting Node.js + TypeScript AI Autonomous Legal Content Telegram Agent...');
-    // 1. Auto-create database tables (Test, Setting, Stat) if not existing
+    // 1. Auto-create database tables (Channel, Test, Setting, Stat) if not existing
     await (0, db_1.ensureDatabaseSchema)();
     // 2. Initialize Telegram Bot
     let bot = null;
@@ -50,9 +50,22 @@ async function main() {
             res.end('Not Found');
         }
     });
-    server.listen(port, () => {
-        logger_1.logger.info(`🌐 Render Keep-Alive HTTP Server listening on port ${port}`);
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            logger_1.logger.warn(`Port ${port} band bo'lganligi sababli HTTP server boshqa portda yoki bot fonida davom etmoqda.`);
+        }
+        else {
+            logger_1.logger.error(`HTTP server xatosi: ${err?.message || err}`);
+        }
     });
+    try {
+        server.listen(port, () => {
+            logger_1.logger.info(`🌐 Render Keep-Alive HTTP Server listening on port ${port}`);
+        });
+    }
+    catch (err) {
+        logger_1.logger.warn(`Could not listen on port ${port}: ${err?.message || err}`);
+    }
     // 5. Auto Self-Ping Interval (Pings service every 5 minutes to prevent spin-down)
     const renderExternalUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
     node_cron_1.default.schedule('*/5 * * * *', async () => {
