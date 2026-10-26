@@ -57,6 +57,9 @@ commandsComposer.on('message:text', async (ctx, next) => {
     try {
       const chat = await ctx.api.getChat(cleanId);
       const title = (chat as any).title || cleanId;
+      if ((chat as any).username) {
+        cleanId = '@' + (chat as any).username;
+      }
 
       await repository.addChannel(cleanId, title);
       delete adminState[userId];

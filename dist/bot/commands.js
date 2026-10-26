@@ -51,6 +51,9 @@ exports.commandsComposer.on('message:text', async (ctx, next) => {
         try {
             const chat = await ctx.api.getChat(cleanId);
             const title = chat.title || cleanId;
+            if (chat.username) {
+                cleanId = '@' + chat.username;
+            }
             await schema_1.repository.addChannel(cleanId, title);
             delete admin_1.adminState[userId];
             await ctx.reply(`✅ <b>Kanal muvaffaqiyatli qo‘shildi va faollashtirildi!</b>\n\n` +

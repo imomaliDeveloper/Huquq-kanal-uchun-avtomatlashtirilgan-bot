@@ -145,15 +145,49 @@ class Agent {
         const successfulChannels = [];
         const failedChannels = [];
         let firstMessageId;
+        // Dynamically retrieve the bot's username
+        let botTag = '@Huquqchi_bot';
+        try {
+            const me = bot.botInfo || (await bot.api.getMe());
+            if (me?.username) {
+                botTag = `@${me.username}`;
+            }
+        }
+        catch {
+            // Keep default fallback
+        }
         for (const target of targets) {
             try {
-                const postText = formatter_1.formatter.formatPostText(test, target.channelId);
-                logger_1.logger.info(`Publishing text quiz to channel '${target.channelId}'...`);
+                let channelTag = target.channelId;
+                // Automatically fetch channel's username from Telegram API
+                try {
+                    const chat = await bot.api.getChat(target.channelId);
+                    if (chat.username) {
+                        channelTag = `@${chat.username}`;
+                    }
+                    else if (chat.invite_link) {
+                        channelTag = `<a href="${chat.invite_link}">${chat.title || target.title || 'Kanal'}</a>`;
+                    }
+                    else if (target.channelId.startsWith('@')) {
+                        channelTag = target.channelId;
+                    }
+                    else if (chat.title) {
+                        channelTag = `<b>${chat.title}</b>`;
+                    }
+                }
+                catch (chatErr) {
+                    logger_1.logger.warn(`Could not fetch chat info for '${target.channelId}': ${chatErr?.message || chatErr}`);
+                    if (!channelTag.startsWith('@') && !channelTag.startsWith('-')) {
+                        channelTag = `@${channelTag}`;
+                    }
+                }
+                const postText = formatter_1.formatter.formatPostText(test, channelTag, botTag);
+                logger_1.logger.info(`Publishing text quiz to channel '${target.channelId}' with promo '${channelTag}'...`);
                 const msg = await bot.api.sendMessage(target.channelId, postText, {
                     parse_mode: 'HTML',
                     reply_markup: keyboard,
                 });
-                successfulChannels.push(target.title || target.channelId);
+                successfulChannels.push(channelTag || target.title || target.channelId);
                 if (!firstMessageId)
                     firstMessageId = msg.message_id;
             }

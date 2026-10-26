@@ -98,7 +98,8 @@ exports.adminComposer.on('callback_query:data', async (ctx) => {
             return;
         }
         const testItem = result.test;
-        const previewText = formatter_1.formatter.formatPreviewText(testItem);
+        const botTag = ctx.me?.username ? `@${ctx.me.username}` : '@Huquqchi_bot';
+        const previewText = formatter_1.formatter.formatPreviewText(testItem, '(Kanal username avtomatik qo‘yiladi)', botTag);
         const kb = (0, keyboards_1.getPreviewKeyboard)(testItem.id);
         await ctx.reply(previewText, { reply_markup: kb, parse_mode: 'HTML' });
         return;
@@ -168,7 +169,8 @@ exports.adminComposer.on('callback_query:data', async (ctx) => {
         await ctx.answerCallbackQuery({ text: '🔄 Yangi test yaratilmoqda...' });
         const result = await agent_1.agent.runPipeline({ requestedTopic: topic, isAuto: false, publishImmediately: false });
         if (result.success && result.test) {
-            const previewText = formatter_1.formatter.formatPreviewText(result.test);
+            const botTag = ctx.me?.username ? `@${ctx.me.username}` : '@Huquqchi_bot';
+            const previewText = formatter_1.formatter.formatPreviewText(result.test, '(Kanal username avtomatik qo‘yiladi)', botTag);
             const kb = (0, keyboards_1.getPreviewKeyboard)(result.test.id);
             await ctx.reply(previewText, { reply_markup: kb, parse_mode: 'HTML' });
         }

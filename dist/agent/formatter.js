@@ -3,10 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatter = exports.Formatter = void 0;
 const topicSelector_1 = require("./topicSelector");
 class Formatter {
-    formatPostText(test, channelPromo) {
+    formatPostText(test, channelPromo, botPromo) {
         const icon = topicSelector_1.TOPIC_ICONS[test.topic || ''] || '⚖️';
         const testIdStr = test.id ? ` #${test.id}` : '';
         const channelTag = channelPromo ? channelPromo : '@Huquq_study';
+        const botTag = botPromo ? botPromo : '@Huquqchi_bot';
         return (`<b>${icon} HUQUQIY TEST${testIdStr}</b>\n\n` +
             `📌 <b>Mavzu:</b> ${test.topic}\n\n` +
             `❓ <b>SAVOL:</b>\n${test.question}\n\n` +
@@ -16,11 +17,13 @@ class Formatter {
             `🆓 <b>D)</b> ${test.optionD}\n\n` +
             `👇 <i>Javobingizni pastdagi [ A ] [ B ] [ C ] [ D ] tugmalarini bosib tekshiring!</i>\n\n` +
             `📢 <b>Kanal:</b> ${channelTag}\n` +
-            `🤖 <b>Bot:</b> @Huquqchi_bot`);
+            `🤖 <b>Bot:</b> ${botTag}`);
     }
-    formatPreviewText(test) {
+    formatPreviewText(test, channelPromo, botPromo) {
         const letters = ['A', 'B', 'C', 'D'];
         const correctLetter = letters[test.correctAnswer ?? 0] || 'A';
+        const channelTag = channelPromo ? channelPromo : '@Huquq_study';
+        const botTag = botPromo ? botPromo : '@Huquqchi_bot';
         return (`🧠 <b>HUQUQIY TEST (PREVIEW)</b>\n\n` +
             `📌 <b>Mavzu:</b> ${test.topic}\n\n` +
             `❓ <b>Savol:</b>\n${test.question}\n\n` +
@@ -31,7 +34,7 @@ class Formatter {
             `✅ <b>To‘g‘ri javob:</b> ${correctLetter}\n` +
             `📚 <b>Izoh:</b> ${test.explanation}\n` +
             `⚖️ <b>Manba:</b> ${test.legalSource}\n\n` +
-            `📢 @Huquq_study | 🤖 @Huquqchi_bot`);
+            `📢 ${channelTag} | 🤖 ${botTag}`);
     }
 }
 exports.Formatter = Formatter;
