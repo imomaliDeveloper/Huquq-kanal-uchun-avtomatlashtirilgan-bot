@@ -145,17 +145,6 @@ class Agent {
         const successfulChannels = [];
         const failedChannels = [];
         let firstMessageId;
-        // Dynamically retrieve the bot's username
-        let botTag = '@Huquqchi_bot';
-        try {
-            const me = bot.botInfo || (await bot.api.getMe());
-            if (me?.username) {
-                botTag = `@${me.username}`;
-            }
-        }
-        catch {
-            // Keep default fallback
-        }
         for (const target of targets) {
             try {
                 let channelTag = target.channelId;
@@ -181,7 +170,7 @@ class Agent {
                         channelTag = `@${channelTag}`;
                     }
                 }
-                const postText = formatter_1.formatter.formatPostText(test, channelTag, botTag);
+                const postText = formatter_1.formatter.formatPostText(test, channelTag);
                 logger_1.logger.info(`Publishing text quiz to channel '${target.channelId}' with promo '${channelTag}'...`);
                 const msg = await bot.api.sendMessage(target.channelId, postText, {
                     parse_mode: 'HTML',

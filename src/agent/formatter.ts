@@ -1,12 +1,32 @@
 import { Test } from '@prisma/client';
 import { TOPIC_ICONS } from './topicSelector';
 
+export const MOTIVATIONAL_QUOTES = [
+  "«Bilim — eng qudratli qurol.»",
+  "«Qonunni bilish — o‘z huquqingni himoya qilishdir.»",
+  "«Kichik qadamlar katta g‘alabalarga olib boradi.»",
+  "«O‘rganishdan hech qachon to‘xtamang!»",
+  "«Adolat — jamiyatning eng oliy poydevoridir.»",
+  "«Har kuni 1% o‘sish — yillik ulkan natijadir.»",
+  "«Intizom — maqsad va natija orasidagi ko‘prikdir.»",
+  "«Kuch bilimda, bilim esa tinimsiz izlanishda!»",
+  "«Bugungi mehnatingiz — ertangi muvaffaqiyatingiz.»",
+  "«O‘z ustingda ishlash — hayotingdagi eng yaxshi sarmoyadir.»",
+  "«Haqiqiy bilim egasi doimo yuksaklikda bo‘ladi.»",
+  "«Qat‘iyat bilan boshlangan harakat doim g‘alaba bilan tugaydi.»",
+];
+
+export function getRandomMotivationalQuote(): string {
+  const idx = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
+  return MOTIVATIONAL_QUOTES[idx];
+}
+
 export class Formatter {
-  formatPostText(test: Partial<Test>, channelPromo?: string, botPromo?: string): string {
+  formatPostText(test: Partial<Test>, channelPromo?: string): string {
     const icon = TOPIC_ICONS[test.topic || ''] || '⚖️';
     const testIdStr = test.id ? ` #${test.id}` : '';
     const channelTag = channelPromo ? channelPromo : '@Huquq_study';
-    const botTag = botPromo ? botPromo : '@Huquqchi_bot';
+    const quote = getRandomMotivationalQuote();
 
     return (
       `<b>${icon} HUQUQIY TEST${testIdStr}</b>\n\n` +
@@ -18,15 +38,15 @@ export class Formatter {
       `🆓 <b>D)</b> ${test.optionD}\n\n` +
       `👇 <i>Javobingizni pastdagi [ A ] [ B ] [ C ] [ D ] tugmalarini bosib tekshiring!</i>\n\n` +
       `📢 <b>Kanal:</b> ${channelTag}\n` +
-      `🤖 <b>Bot:</b> ${botTag}`
+      `💡 <i>${quote}</i>`
     );
   }
 
-  formatPreviewText(test: Partial<Test>, channelPromo?: string, botPromo?: string): string {
+  formatPreviewText(test: Partial<Test>, channelPromo?: string): string {
     const letters = ['A', 'B', 'C', 'D'];
     const correctLetter = letters[test.correctAnswer ?? 0] || 'A';
     const channelTag = channelPromo ? channelPromo : '@Huquq_study';
-    const botTag = botPromo ? botPromo : '@Huquqchi_bot';
+    const quote = getRandomMotivationalQuote();
 
     return (
       `🧠 <b>HUQUQIY TEST (PREVIEW)</b>\n\n` +
@@ -39,7 +59,8 @@ export class Formatter {
       `✅ <b>To‘g‘ri javob:</b> ${correctLetter}\n` +
       `📚 <b>Izoh:</b> ${test.explanation}\n` +
       `⚖️ <b>Manba:</b> ${test.legalSource}\n\n` +
-      `📢 ${channelTag} | 🤖 ${botTag}`
+      `📢 ${channelTag}\n` +
+      `💡 <i>${quote}</i>`
     );
   }
 }

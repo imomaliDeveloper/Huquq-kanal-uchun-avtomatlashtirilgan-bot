@@ -124,8 +124,7 @@ adminComposer.on('callback_query:data', async (ctx) => {
     }
 
     const testItem = result.test;
-    const botTag = ctx.me?.username ? `@${ctx.me.username}` : '@Huquqchi_bot';
-    const previewText = formatter.formatPreviewText(testItem, '(Kanal username avtomatik qo‘yiladi)', botTag);
+    const previewText = formatter.formatPreviewText(testItem, '(Kanal username avtomatik qo‘yiladi)');
     const kb = getPreviewKeyboard(testItem.id);
 
     await ctx.reply(previewText, { reply_markup: kb, parse_mode: 'HTML' });
@@ -212,8 +211,7 @@ adminComposer.on('callback_query:data', async (ctx) => {
 
     const result = await agent.runPipeline({ requestedTopic: topic, isAuto: false, publishImmediately: false });
     if (result.success && result.test) {
-      const botTag = ctx.me?.username ? `@${ctx.me.username}` : '@Huquqchi_bot';
-      const previewText = formatter.formatPreviewText(result.test, '(Kanal username avtomatik qo‘yiladi)', botTag);
+      const previewText = formatter.formatPreviewText(result.test, '(Kanal username avtomatik qo‘yiladi)');
       const kb = getPreviewKeyboard(result.test.id);
       await ctx.reply(previewText, { reply_markup: kb, parse_mode: 'HTML' });
     }
