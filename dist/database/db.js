@@ -14,7 +14,18 @@ const dataDir = path_1.default.join(env_1.BASE_DIR, 'data');
 if (!fs_1.default.existsSync(dataDir)) {
     fs_1.default.mkdirSync(dataDir, { recursive: true });
 }
-exports.prisma = new client_1.PrismaClient();
+const sqliteFilePath = path_1.default.resolve(dataDir, 'legal_agent.db').replace(/\\/g, '/');
+const fallbackDbUrl = `file:${sqliteFilePath}`;
+if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('file:')) {
+    process.env.DATABASE_URL = fallbackDbUrl;
+}
+exports.prisma = new client_1.PrismaClient({
+    datasources: {
+        db: {
+            url: process.env.DATABASE_URL || fallbackDbUrl,
+        },
+    },
+});
 async function ensureDatabaseSchema() {
     try {
         await exports.prisma.$connect();

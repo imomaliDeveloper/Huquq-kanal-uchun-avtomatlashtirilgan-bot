@@ -17,6 +17,11 @@ const normalizeChannelId = (val: string) => {
   return cleaned;
 };
 
+// Ensure DATABASE_URL is always a valid file: protocol URL for SQLite
+if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('file:')) {
+  process.env.DATABASE_URL = 'file:../data/legal_agent.db';
+}
+
 const envSchema = z.object({
   BOT_TOKEN: z.string().default(''),
   CHANNEL_ID: z.string().transform(normalizeChannelId).default(''),
