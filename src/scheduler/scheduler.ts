@@ -35,12 +35,18 @@ export class SchedulerManager {
 
   async syncScheduleFromDb(): Promise<void> {
     const autoEnabledStr = await repository.getSetting('auto_post_enabled', String(env.AUTO_POST));
-    const intervalHoursStr = await repository.getSetting('post_interval_hours', String(env.POST_INTERVAL_HOURS));
+    const intervalMinutesStr = await repository.getSetting('post_interval_minutes', '');
     const peakModeStr = await repository.getSetting('peak_hours_mode', String(env.PEAK_HOURS_MODE));
 
     const isEnabled = autoEnabledStr.toLowerCase() === 'true';
     const isPeakMode = peakModeStr.toLowerCase() === 'true';
-    const intervalHours = parseFloat(intervalHoursStr) || 1.0;
+
+    let intervalMinutes = parseInt(intervalMinutesStr, 10);
+    if (isNaN(intervalMinutes) || intervalMinutes <= 0) {
+      const intervalHoursStr = await repository.getSetting('post_interval_hours', String(env.POST_INTERVAL_HOURS));
+      const intervalHours = parseFloat(intervalHoursStr) || 1.0;
+      intervalMinutes = Math.round(intervalHours * 60);
+    }
 
     if (this.currentTask) {
       this.currentTask.stop();
@@ -60,16 +66,19 @@ export class SchedulerManager {
       cronExpression = '0 9,13,18,21 * * *';
       logger.info('Scheduling node-cron PEAK HOURS MODE: 09:00, 13:00, 18:00, 21:00 Tashkent time');
     } else {
-      // Standard interval schedules
-      if (intervalHours === 0.5) cronExpression = '*/30 * * * *';
-      else if (intervalHours === 1.0) cronExpression = '0 * * * *';
-      else if (intervalHours === 2.0) cronExpression = '0 */2 * * *';
-      else if (intervalHours === 3.0) cronExpression = '0 */3 * * *';
-      else if (intervalHours === 6.0) cronExpression = '0 */6 * * *';
-      else if (intervalHours === 12.0) cronExpression = '0 */12 * * *';
-      else if (intervalHours === 24.0) cronExpression = '0 0 * * *';
+      // Minute-based or Hour-based interval schedules
+      if (intervalMinutes === 1) {
+        cronExpression = '* * * * *';
+      } else if (intervalMinutes < 60) {
+        cronExpression = `*/${intervalMinutes} * * * *`;
+      } else {
+        const hours = Math.round(intervalMinutes / 60);
+        if (hours === 1) cronExpression = '0 * * * *';
+        else if (hours === 24) cronExpression = '0 0 * * *';
+        else cronExpression = `0 */${hours} * * *`;
+      }
 
-      logger.info(`Scheduling node-cron auto-post task: expression '${cronExpression}' (Every ${intervalHours} hours)`);
+      logger.info(`Scheduling node-cron auto-post task: expression '${cronExpression}' (Every ${intervalMinutes} minutes)`);
     }
 
     this.currentTask = cron.schedule(
@@ -97,10 +106,15 @@ export class SchedulerManager {
     );
   }
 
-  async setInterval(hours: number): Promise<void> {
-    await repository.setSetting('post_interval_hours', String(hours));
+  async setIntervalMinutes(minutes: number): Promise<void> {
+    await repository.setSetting('post_interval_minutes', String(minutes));
+    await repository.setSetting('post_interval_hours', String((minutes / 60).toFixed(2)));
     await repository.setSetting('peak_hours_mode', 'false');
     await this.syncScheduleFromDb();
+  }
+
+  async setInterval(hours: number): Promise<void> {
+    await this.setIntervalMinutes(Math.round(hours * 60));
   }
 
   async setAutoStatus(enabled: boolean): Promise<void> {

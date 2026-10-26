@@ -74,6 +74,27 @@ exports.commandsComposer.on('message:text', async (ctx, next) => {
             return;
         }
     }
+    // Intercept Custom Interval input (e.g. "1", "5", "10")
+    if (userId && admin_1.adminState[userId]?.step === 'awaiting_custom_interval') {
+        if (text === '/cancel' || text.toLowerCase() === 'bekor qilish') {
+            delete admin_1.adminState[userId];
+            await ctx.reply('❌ Interval kiritish bekor qilindi.', { reply_markup: (0, keyboards_1.getMainAdminKeyboard)() });
+            return;
+        }
+        const minutes = parseInt(text, 10);
+        if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
+            await ctx.reply('⚠️ <b>Noto‘g‘ri format!</b>\n\n' +
+                'Iltimos, 1 dan 1440 gacha bo‘lgan musbat butun son kiriting (masalan: <code>1</code>, <code>5</code>, <code>10</code>):\n\n' +
+                'Bekor qilish uchun: /cancel', { parse_mode: 'HTML' });
+            return;
+        }
+        delete admin_1.adminState[userId];
+        await scheduler_1.scheduler.setIntervalMinutes(minutes);
+        const desc = minutes < 60 ? `${minutes} daqiqa` : `${(minutes / 60).toFixed(1).replace('.0', '')} soat`;
+        await ctx.reply(`✅ <b>Avto-post intervali muvaffaqiyatli o‘rnatildi!</b>\n\n` +
+            `⏱ Yangi interval: <b>Har ${desc}da</b> kanal(lar)ga avtomatik test joylanadi.`, { reply_markup: (0, keyboards_1.getMainAdminKeyboard)(), parse_mode: 'HTML' });
+        return;
+    }
     await next();
 });
 exports.commandsComposer.command('start', async (ctx) => {

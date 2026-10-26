@@ -161,9 +161,10 @@ export class Agent {
         const postText = formatter.formatPostText(test, channelTag);
         logger.info(`Publishing text quiz to channel '${target.channelId}' with promo '${channelTag}'...`);
 
+        const channelKeyboard = getChannelQuizKeyboard(test.id, channelTag);
         const msg = await bot.api.sendMessage(target.channelId, postText, {
           parse_mode: 'HTML',
-          reply_markup: keyboard,
+          reply_markup: channelKeyboard,
         });
 
         successfulChannels.push(channelTag || target.title || target.channelId);

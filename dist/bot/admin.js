@@ -258,10 +258,31 @@ exports.adminComposer.on('callback_query:data', async (ctx) => {
         });
         return;
     }
-    // Set Interval Callback
+    // Set Interval in Minutes Callback (e.g. 1, 5, 10, 15, 30, 60...)
+    if (data.startsWith('set_int_min:')) {
+        const minutes = parseInt(data.split(':')[1], 10);
+        await scheduler_1.scheduler.setIntervalMinutes(minutes);
+        const desc = minutes < 60 ? `${minutes} daqiqa` : `${(minutes / 60).toFixed(1).replace('.0', '')} soat`;
+        await ctx.answerCallbackQuery({ text: `Interval har ${desc}ga o'zgartirildi.` });
+        await renderAutoPostCard(ctx);
+        return;
+    }
+    // Set Custom Interval Callback
+    if (data === 'set_int_custom') {
+        const userId = ctx.from?.id;
+        if (userId) {
+            exports.adminState[userId] = { step: 'awaiting_custom_interval' };
+        }
+        await ctx.answerCallbackQuery();
+        await ctx.reply(`⏱ <b>Ixtiyoriy posting daqiqasini yozing:</b>\n\n` +
+            `Masalan: <code>1</code> (har 1 daqiqada), <code>5</code> (har 5 daqiqada), <code>10</code> (har 10 daqiqada).\n\n` +
+            `<i>1 dan 1440 gacha bo‘lgan butun son yozib yuboring (bekor qilish uchun /cancel):</i>`, { parse_mode: 'HTML' });
+        return;
+    }
+    // Set Interval in Hours Callback (legacy)
     if (data.startsWith('set_int:')) {
         const intervalVal = parseFloat(data.split(':')[1]);
-        await scheduler_1.scheduler.setInterval(intervalVal);
+        await scheduler_1.scheduler.setIntervalMinutes(Math.round(intervalVal * 60));
         await ctx.answerCallbackQuery({ text: `Interval ${intervalVal} soatga o'zgartirildi.` });
         await renderAutoPostCard(ctx);
         return;
@@ -298,13 +319,22 @@ async function renderAutoPostCard(ctx) {
     const autoOnStr = await schema_1.repository.getSetting('auto_post_enabled', String(env_1.env.AUTO_POST));
     const quietOnStr = await schema_1.repository.getSetting('quiet_hours_enabled', String(env_1.env.QUIET_HOURS_ENABLED));
     const peakOnStr = await schema_1.repository.getSetting('peak_hours_mode', String(env_1.env.PEAK_HOURS_MODE));
-    const interval = await schema_1.repository.getSetting('post_interval_hours', String(env_1.env.POST_INTERVAL_HOURS));
+    const intervalMinutesStr = await schema_1.repository.getSetting('post_interval_minutes', '');
+    let intervalText = '';
+    const minutes = parseInt(intervalMinutesStr, 10);
+    if (!isNaN(minutes) && minutes > 0) {
+        intervalText = minutes < 60 ? `⏱ Har ${minutes} daqiqada` : `⏱ Har ${(minutes / 60).toFixed(1).replace('.0', '')} soatda`;
+    }
+    else {
+        const hours = await schema_1.repository.getSetting('post_interval_hours', String(env_1.env.POST_INTERVAL_HOURS));
+        intervalText = `⏱ Har ${hours} soatda`;
+    }
     const isAuto = autoOnStr.toLowerCase() === 'true';
     const isQuiet = quietOnStr.toLowerCase() === 'true';
     const isPeak = peakOnStr.toLowerCase() === 'true';
     const text = (`🤖 <b>Avtomatik posting boshqaruvi</b>\n\n` +
         `<b>Status:</b> ${isAuto ? '🟢 Yoqilgan' : '🔴 O‘chirilgan'}\n` +
-        `<b>Rejim:</b> ${isPeak ? '⭐ Peak Hours (09:00, 13:00, 18:00, 21:00)' : `⏱ Har ${interval} soatda`}\n` +
+        `<b>Rejim:</b> ${isPeak ? '⭐ Peak Hours (09:00, 13:00, 18:00, 21:00)' : intervalText}\n` +
         `<b>🌙 Tungi Jimlik (Quiet Hours):</b> ${isQuiet ? '🟢 Yoqilgan (23:00 - 07:00)' : '🔴 O‘chirilgan'}`);
     const kb = (0, keyboards_1.getAutoPostKeyboard)(isAuto, isQuiet, isPeak);
     await ctx.editMessageText(text, { reply_markup: kb, parse_mode: 'HTML' });

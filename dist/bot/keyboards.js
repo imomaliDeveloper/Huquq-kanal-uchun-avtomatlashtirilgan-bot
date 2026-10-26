@@ -75,10 +75,13 @@ function getAutoPostKeyboard(isEnabled, quietEnabled, peakEnabled) {
 }
 function getIntervalPickerKeyboard() {
     return new grammy_1.InlineKeyboard()
-        .text('30 daqiqa', 'set_int:0.5').text('1 soat', 'set_int:1.0').row()
-        .text('2 soat', 'set_int:2.0').text('3 soat', 'set_int:3.0').row()
-        .text('6 soat', 'set_int:6.0').text('12 soat', 'set_int:12.0').row()
-        .text('24 soat', 'set_int:24.0').row()
+        .text('⚡ 1 daqiqa', 'set_int_min:1').text('⚡ 5 daqiqa', 'set_int_min:5').row()
+        .text('⚡ 10 daqiqa', 'set_int_min:10').text('⚡ 15 daqiqa', 'set_int_min:15').row()
+        .text('⏱ 30 daqiqa', 'set_int_min:30').text('⏱ 1 soat', 'set_int_min:60').row()
+        .text('⏱ 2 soat', 'set_int_min:120').text('⏱ 3 soat', 'set_int_min:180').row()
+        .text('⏱ 6 soat', 'set_int_min:360').text('⏱ 12 soat', 'set_int_min:720').row()
+        .text('⏱ 24 soat', 'set_int_min:1440').row()
+        .text('✍️ Maxsus daqiqa kiritish', 'set_int_custom').row()
         .text('🔙 Orqaga', 'menu:auto');
 }
 function getHistoryFilterKeyboard() {
@@ -87,9 +90,18 @@ function getHistoryFilterKeyboard() {
         .text('📅 Hafta', 'hist:week').text('📅 Oy', 'hist:month').row()
         .text('📚 Barcha testlar', 'hist:all');
 }
-function getChannelQuizKeyboard(testId) {
+function getChannelQuizKeyboard(testId, channelLink) {
     // Clean, modern, elegant choice buttons
-    return new grammy_1.InlineKeyboard()
+    const kb = new grammy_1.InlineKeyboard()
         .text('🔹 A', `ans:${testId}:0`).text('🔹 B', `ans:${testId}:1`).row()
         .text('🔹 C', `ans:${testId}:2`).text('🔹 D', `ans:${testId}:3`);
+    if (channelLink) {
+        let url = channelLink;
+        if (url.startsWith('@'))
+            url = `https://t.me/${url.replace('@', '')}`;
+        if (url.startsWith('https://t.me/')) {
+            kb.row().url('📢 Kanalga a’zo bo‘lish ↗️', url);
+        }
+    }
+    return kb;
 }
