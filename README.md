@@ -1,6 +1,6 @@
 # ⚖️ LEGAL AI AGENT — O‘zbekiston Huquqi Telegram Content Agenti (Node.js + TypeScript)
 
-O‘zbekiston Respublikasi qonunchiligi bo‘yicha **100% to‘liq avtomatlashtirilgan Node.js + TypeScript AI test agenti**. U har soatda (yoki belgilangan intervalda) node-cron orqali mustaqil ravishda huquqiy mavzu tanlaydi, OpenAI API va rasmiy davlat huquqiy manbalari asosida test yaratadi, AI Fact-Checker orqali tekshiradi, professional muqova rasmini generatsiya qiladi va grammY bot orqali Telegram kanalga avtomatik joylaydi.
+O‘zbekiston Respublikasi qonunchiligi bo‘yicha **100% to‘liq avtomatlashtirilgan ko‘p kanalli (Multi-channel) Node.js + TypeScript AI test agenti**. U har soatda (yoki belgilangan peak vaqtlarda) node-cron orqali mustaqil ravishda huquqiy mavzu tanlaydi, Google Gemini / OpenAI API va rasmiy davlat huquqiy manbalari (Lex.uz) asosida test yaratadi, AI Fact-Checker orqali tekshiradi va grammY bot orqali belgilangan barcha Telegram kanallarga avtomatik joylaydi.
 
 ---
 
@@ -8,45 +8,51 @@ O‘zbekiston Respublikasi qonunchiligi bo‘yicha **100% to‘liq avtomatlashti
 
 - **Backend:** Node.js, TypeScript
 - **Telegram Bot Framework:** grammY
-- **AI Provider:** OpenAI API (gpt-4o-mini / gpt-4)
-- **Image Generation:** Pollinations AI (bepul) / OpenAI DALL-E / SVG graphic card fallback
+- **AI Provider:** Google Gemini (`gemini-3.6-flash`, `gemini-2.5-flash`) / OpenAI
+- **Ko‘p kanallik:** Bir vaqtning o‘zida istalgancha kanalni boshqarish, qo‘shish, pauza qilish va o‘chirish
 - **Database:** SQLite & Prisma ORM
-- **Scheduler:** node-cron
-- **Validation:** Zod
+- **Scheduler:** node-cron (Tungi jimlik 23:00-07:00 va Peak hours 09:00, 13:00, 18:00, 21:00)
+- **Keep-Alive:** O‘rnatilgan HTTP Health Server va Render 24/7 avto-ping
 - **Logging:** Winston (`logs/app.log`)
+
+---
+
+## 🌟 ASOSIY IMKONIYATLAR:
+
+1. **📢 Ko‘p Kanalli Boshqaruv (Multi-Channel):**
+   - Admin xohlagancha kanal qo‘shishi mumkin (`@kanal_nomi` yoki kanal ID).
+   - Har bir kanalni alohida pauzaga qo‘yish yoki faollashtirish imkoniyati.
+   - Yangi test yaratilganda barcha faol kanallarga bir vaqtda yoki tanlangan alohida kanalga joylash.
+2. **🧠 Avtonom AI Pipeline:**
+   - 12 ta huquqiy mavzu bo‘yicha balansli savol tanlash.
+   - Lex.uz rasmiy qonun kodekslari va moddalariga asoslangan to‘g‘ri javob va batafsil izoh.
+   - AI Fact-Checker orqali tekshiruv va takrorlanishning oldini oluvchi Duplicate Checker.
+3. **🌙 Tungi Jimlik Rejimi (Quiet Hours):**
+   - Soat 23:00 dan 07:00 gacha obunachilarni bezovta qilmaslik uchun avtomatik to‘xtab turish.
+4. **⭐ Peak Activity Hours:**
+   - Obunachilar eng faol bo‘lgan vaqtlarda (09:00, 13:00, 18:00, 21:00) avtomatik post chiqarish.
 
 ---
 
 ## 🚀 QADAM-BA-QADAM O‘RNATISH VA ISHGA TUSHIRISH
 
-### 1. Node.js o'rnatilganini tekshirish
-Kompyuteringizda Node.js 18+ va npm o'rnatilgan bo'lishi kerak.
-
-```bash
-node -v
-npm -v
-```
-
-### 2. NPM paketlarini o'rnatish
+### 1. Bog‘liqliklarni o‘rnatish
 
 ```bash
 npm install
 ```
 
-### 3. `.env` Faylini to'ldirish
-
-Loyiha katalogidagi `.env.example` faylidan `.env` yaratib to'ldiring:
+### 2. `.env` Faylini to‘ldirish
 
 ```env
 BOT_TOKEN=7123456789:AAFxxx... (Telegram @BotFather tokeni)
-CHANNEL_ID=-1001234567890     (Kanal ID-si)
+CHANNEL_ID=@Huquq_study        (Boshlang'ich kanal username'i)
 ADMIN_ID=123456789            (Sizning Telegram user_id-ingiz)
 
-AI_PROVIDER=openai
-AI_API_KEY=sk-proj-...        (OpenAI API kalitingiz)
-AI_MODEL=gpt-4o-mini
+AI_PROVIDER=gemini
+GEMINI_API_KEY=AIzaSy...       (Google AI Studio kaliti)
+AI_MODEL=gemini-3.6-flash
 
-IMAGE_PROVIDER=pollinations   (pollinations, openai)
 POST_INTERVAL_HOURS=1
 TIMEZONE=Asia/Tashkent
 AUTO_POST=true
@@ -54,39 +60,31 @@ ADMIN_APPROVAL=false
 DATABASE_URL="file:../data/legal_agent.db"
 ```
 
-### 4. Prisma Ma'lumotlar Bazasini Yaratish
+### 3. Ishga tushirish
 
 ```bash
-npx prisma db push
-```
-
-### 5. Botni Ishga Tushirish
-
-**Rivojlantirish (Dev) rejimi:**
-```bash
+# Rivojlantirish rejimi:
 npm run dev
-```
 
-**Bitta bosishda ishga tushirish (Windows batch):**
-`start.bat` faylini ikki marta bosing.
+# Windows-da bitta bosishda:
+start.bat
 
-**Build va Production rejimi:**
-```bash
+# Production (Server):
 npm run build
 npm start
 ```
 
 ---
 
-## 🎛️ ADMIN PANEL BUYRUQLARI
+## 🎛️ TELEGRAM ADMIN PANEL BUYRUQLARI
 
-Telegram chatida botingizga `/admin` buyrug'ini yuboring:
+Telegram chatida botingizga `/admin` buyrug‘ini yuboring:
 
-- `/admin` — Interaktiv boshqaruv paneli dashboardi.
-- `/newtest` — Yangi test yaratish menyusi (Mavzu tanlash).
-- `/post` — **DARHOL KANALGA TEST CHIQARISH** (Intervalni kutmasdan).
-- `/auto` — Avtomatik postingni yoqish/o'chirish va intervalni sozlash (30m, 1h, 2h, 3h, 6h, 12h, 24h).
-- `/stats` — Posting va AI generatsiyasi statistikasi dashboardi.
-- `/history` — Tarixdagi testlar logi.
-- `/stop` — Avtomatik postingni to'xtatish.
-- `/resume` — Avtomatik postingni qayta tiklash.
+- `➕ YANGI TEST` — Yangi huquqiy test yaratish va preview qilish.
+- `🚀 HOZIR JOYLASH` — Darhol kanallarga test chiqarish.
+- `📢 KANALLAR` — Ulangan kanallarni ko‘rish, yangi kanal qo‘shish, pauza qilish yoki o‘chirish.
+- `⏰ AVTO POST` — Avtomatik posting, Tungi Jimlik va Peak rejimlarini boshqarish.
+- `📚 MAVZULAR` — 12 ta huquqiy mavzu ro‘yxati.
+- `📝 TESTLAR` — Tarixdagi barcha testlar va natijalar.
+- `📊 STATISTIKA` — Kanallar va postlar statistikasi.
+- `⚙️ SOZLAMALAR` — Bot sozlamalari.

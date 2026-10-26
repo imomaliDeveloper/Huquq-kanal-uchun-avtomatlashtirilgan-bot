@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminComposer = void 0;
+exports.adminState = exports.adminComposer = void 0;
+exports.renderChannelsCard = renderChannelsCard;
 const grammy_1 = require("grammy");
 const agent_1 = require("../agent/agent");
 const schema_1 = require("../database/schema");
@@ -9,6 +10,37 @@ const scheduler_1 = require("../scheduler/scheduler");
 const keyboards_1 = require("./keyboards");
 const env_1 = require("../config/env");
 exports.adminComposer = new grammy_1.Composer();
+// In-memory admin interaction state
+exports.adminState = {};
+async function renderChannelsCard(ctx) {
+    const channels = await schema_1.repository.getAllChannels();
+    const activeCount = channels.filter((c) => c.isActive).length;
+    let channelListText = '';
+    if (channels.length === 0) {
+        channelListText = '<i>Hozircha hech qanday kanal ulanmagan.</i>\n';
+    }
+    else {
+        channelListText =
+            channels
+                .map((c, i) => {
+                const status = c.isActive ? '🟢 Faol' : '⏸️ Pauzada';
+                return `${i + 1}. <b>${c.title || c.channelId}</b> (<code>${c.channelId}</code>) — ${status}`;
+            })
+                .join('\n') + '\n';
+    }
+    const text = (`📢 <b>ULANGAN KANALLAR BOSHQARUVI</b>\n\n` +
+        channelListText +
+        `\n📊 <b>Faol kanallar:</b> ${activeCount} ta\n` +
+        `📚 <b>Jami kanallar:</b> ${channels.length} ta\n\n` +
+        `<i>Har bir kanal yonidagi tugmani bosib uni pauzaga qo'yishingiz yoki qayta yoqishingiz mumkin.</i>`);
+    const kb = (0, keyboards_1.getChannelsManagementKeyboard)(channels);
+    if (ctx.callbackQuery) {
+        await ctx.editMessageText(text, { reply_markup: kb, parse_mode: 'HTML' });
+    }
+    else {
+        await ctx.reply(text, { reply_markup: kb, parse_mode: 'HTML' });
+    }
+}
 exports.adminComposer.on('callback_query:data', async (ctx) => {
     const data = ctx.callbackQuery.data;
     // Interactive Quiz Option Answer Callback (ans:testId:optionIdx)
@@ -71,7 +103,7 @@ exports.adminComposer.on('callback_query:data', async (ctx) => {
         await ctx.reply(previewText, { reply_markup: kb, parse_mode: 'HTML' });
         return;
     }
-    // Publish Test Callback
+    // Publish Test Callback (with channel selection if multiple active channels)
     if (data.startsWith('publish:')) {
         const testId = parseInt(data.split(':')[1], 10);
         const testItem = await schema_1.repository.getTestById(testId);
@@ -79,14 +111,51 @@ exports.adminComposer.on('callback_query:data', async (ctx) => {
             await ctx.answerCallbackQuery({ text: '⚠️ Test topilmadi!', show_alert: true });
             return;
         }
+        const activeChannels = await schema_1.repository.getActiveChannels();
+        if (activeChannels.length > 1) {
+            // Multiple active channels available: let admin choose
+            await ctx.answerCallbackQuery();
+            const kb = (0, keyboards_1.getPublishTargetKeyboard)(testId, activeChannels);
+            await ctx.reply(`📢 <b>Qaysi kanal(lar)ga joylashtirmoqchisiz?</b>\n\n` +
+                `Faol kanallar: <b>${activeChannels.length} ta</b>\n` +
+                `Quyidagi variantlardan birini tanlang:`, { reply_markup: kb, parse_mode: 'HTML' });
+            return;
+        }
+        // Single active channel or default
         await ctx.answerCallbackQuery({ text: '🚀 Kanalga yuborilmoqda...' });
         const publishRes = await agent_1.agent.publishTestToTelegram(testItem);
         if (publishRes.success) {
             await schema_1.repository.updateTestStatus(testId, 'published', publishRes.messageId);
-            await ctx.reply(`✅ <b>Test #${testId} Telegram kanalga muvaffaqiyatli joylandi!</b>`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>Test #${testId} Telegram kanalga joylandi!</b>\n\n${publishRes.summary}`, { parse_mode: 'HTML' });
         }
         else {
-            await ctx.reply(`❌ <b>Test #${testId} kanalga yuborishda xatolik!</b>`, { parse_mode: 'HTML' });
+            await ctx.reply(`❌ <b>Test #${testId} kanalga yuborishda xatolik:</b>\n${publishRes.summary}`, { parse_mode: 'HTML' });
+        }
+        return;
+    }
+    // Publish To Specific Channel / All Channels (pub_to:testId:target)
+    if (data.startsWith('pub_to:')) {
+        const parts = data.split(':');
+        const testId = parseInt(parts[1], 10);
+        const target = parts[2];
+        const testItem = await schema_1.repository.getTestById(testId);
+        if (!testItem) {
+            await ctx.answerCallbackQuery({ text: '⚠️ Test topilmadi!', show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery({ text: '🚀 Kanalga yuborilmoqda...' });
+        let targetChannelId = undefined;
+        if (target !== 'all') {
+            const ch = await schema_1.repository.getChannelById(parseInt(target, 10));
+            targetChannelId = ch?.channelId;
+        }
+        const publishRes = await agent_1.agent.publishTestToTelegram(testItem, targetChannelId);
+        if (publishRes.success) {
+            await schema_1.repository.updateTestStatus(testId, 'published', publishRes.messageId);
+            await ctx.editMessageText(`✅ <b>Test #${testId} muvaffaqiyatli joylandi!</b>\n\n${publishRes.summary}`, { parse_mode: 'HTML' });
+        }
+        else {
+            await ctx.editMessageText(`❌ <b>Test #${testId} joylashda xatolik:</b>\n${publishRes.summary}`, { parse_mode: 'HTML' });
         }
         return;
     }
@@ -111,6 +180,47 @@ exports.adminComposer.on('callback_query:data', async (ctx) => {
         await schema_1.repository.updateTestStatus(testId, 'rejected');
         await ctx.answerCallbackQuery({ text: '❌ Test rad etildi.' });
         await ctx.reply(`🗑 <b>Test #${testId} rad etildi.</b>`, { parse_mode: 'HTML' });
+        return;
+    }
+    // --- Channel Management Callbacks ---
+    if (data.startsWith('ch_toggle:')) {
+        const channelId = parseInt(data.split(':')[1], 10);
+        const updated = await schema_1.repository.toggleChannelActive(channelId);
+        if (updated) {
+            const statusText = updated.isActive ? '🟢 Kanal faollashtirildi!' : '⏸️ Kanal pauzaga qo\'yildi!';
+            await ctx.answerCallbackQuery({ text: statusText });
+        }
+        else {
+            await ctx.answerCallbackQuery({ text: '⚠️ Kanal topilmadi!' });
+        }
+        await renderChannelsCard(ctx);
+        return;
+    }
+    if (data.startsWith('ch_del:')) {
+        const channelId = parseInt(data.split(':')[1], 10);
+        try {
+            await schema_1.repository.deleteChannel(channelId);
+            await ctx.answerCallbackQuery({ text: '🗑️ Kanal o‘chirildi!' });
+        }
+        catch {
+            await ctx.answerCallbackQuery({ text: '⚠️ O‘chirishda xatolik!' });
+        }
+        await renderChannelsCard(ctx);
+        return;
+    }
+    if (data === 'ch_refresh') {
+        await ctx.answerCallbackQuery({ text: '🔄 Yangilandi' });
+        await renderChannelsCard(ctx);
+        return;
+    }
+    if (data === 'ch_add') {
+        if (ctx.from?.id) {
+            exports.adminState[ctx.from.id] = { step: 'awaiting_channel_id' };
+        }
+        await ctx.answerCallbackQuery();
+        await ctx.reply(`📢 <b>Yangi kanal qo‘shish:</b>\n\n` +
+            `Iltimos, kanal username'ini (@ belgi bilan, masalan: <code>@Huquq_study</code>) yoki kanal ID-sini (masalan: <code>-1001234567890</code>) yozib yuboring:\n\n` +
+            `⚠️ <i>Eslatma: Kanalni yuborishdan oldin botni ushbu kanalga ADMINISTRATOR qilib qo‘shganingizga va xabarlar joylash (Post Messages) huquqini berganingizga ishonch hosil qiling!</i>`, { parse_mode: 'HTML' });
         return;
     }
     // Auto Toggle Callback
@@ -177,6 +287,10 @@ exports.adminComposer.on('callback_query:data', async (ctx) => {
     }
     if (data === 'admin_menu' || data === 'menu:auto') {
         await renderAutoPostCard(ctx);
+        return;
+    }
+    if (data === 'action:cancel') {
+        await ctx.deleteMessage();
         return;
     }
 });

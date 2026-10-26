@@ -3,6 +3,47 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.repository = exports.Repository = void 0;
 const db_1 = require("./db");
 class Repository {
+    // --- Channel Management ---
+    async getAllChannels() {
+        return await db_1.prisma.channel.findMany({
+            orderBy: { id: 'asc' },
+        });
+    }
+    async getActiveChannels() {
+        return await db_1.prisma.channel.findMany({
+            where: { isActive: true },
+            orderBy: { id: 'asc' },
+        });
+    }
+    async getChannelById(id) {
+        return await db_1.prisma.channel.findUnique({ where: { id } });
+    }
+    async getChannelByUsername(channelId) {
+        return await db_1.prisma.channel.findUnique({ where: { channelId } });
+    }
+    async addChannel(channelId, title = '') {
+        return await db_1.prisma.channel.upsert({
+            where: { channelId },
+            update: { title, isActive: true },
+            create: {
+                channelId,
+                title: title || channelId,
+                isActive: true,
+            },
+        });
+    }
+    async toggleChannelActive(id) {
+        const channel = await db_1.prisma.channel.findUnique({ where: { id } });
+        if (!channel)
+            return null;
+        return await db_1.prisma.channel.update({
+            where: { id },
+            data: { isActive: !channel.isActive },
+        });
+    }
+    async deleteChannel(id) {
+        return await db_1.prisma.channel.delete({ where: { id } });
+    }
     // --- Test CRUD ---
     async createTest(data) {
         return await db_1.prisma.test.create({
@@ -120,7 +161,7 @@ class Repository {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const [todayAuto, todayManual, weekTotal, publishedCount, rejectedCount, topicCounts, statsGrouped,] = await Promise.all([
+        const [todayAuto, todayManual, weekTotal, publishedCount, rejectedCount, topicCounts, statsGrouped, totalChannels, activeChannels,] = await Promise.all([
             db_1.prisma.test.count({ where: { createdAt: { gte: todayStart }, isAuto: true } }),
             db_1.prisma.test.count({ where: { createdAt: { gte: todayStart }, isAuto: false } }),
             db_1.prisma.test.count({ where: { createdAt: { gte: weekStart } } }),
@@ -131,6 +172,8 @@ class Repository {
                 by: ['metricName'],
                 _sum: { metricValue: true },
             }),
+            db_1.prisma.channel.count(),
+            db_1.prisma.channel.count({ where: { isActive: true } }),
         ]);
         let mostUsedTopic = 'N/A';
         let maxCount = 0;
@@ -157,6 +200,8 @@ class Repository {
             aiGenerationCount: statMap['ai_generation'] || 0,
             imageGenerationCount: statMap['image_generation'] || 0,
             duplicatePreventedCount: statMap['duplicate_prevented'] || 0,
+            totalChannels,
+            activeChannels,
         };
     }
 }

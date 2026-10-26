@@ -13,6 +13,7 @@ export interface RunAgentOptions {
   requestedTopic?: string;
   isAuto?: boolean;
   publishImmediately?: boolean;
+  targetChannelId?: string; // specific channel or undefined (all active)
 }
 
 export class Agent {
@@ -77,16 +78,16 @@ export class Agent {
 
       logger.info(`Test created in database with ID #${createdTest.id}`);
 
-      // 6. Telegram Text Post with Choice Buttons
+      // 6. Telegram Channel Post with Choice Buttons
       if (shouldPublish) {
-        const publishResult = await this.publishTestToTelegram(createdTest);
+        const publishResult = await this.publishTestToTelegram(createdTest, options.targetChannelId);
         if (publishResult.success) {
           await repository.updateTestStatus(createdTest.id, 'published', publishResult.messageId);
           createdTest.status = 'published';
-          return { success: true, message: `Test #${createdTest.id} kanalga joylandi!`, test: createdTest };
+          return { success: true, message: `Test #${createdTest.id} joylandi! (${publishResult.summary})`, test: createdTest };
         } else {
           await repository.updateTestStatus(createdTest.id, 'error_publish');
-          return { success: false, message: `Test #${createdTest.id} yaratildi, lekin Telegram kanalga yuborib bo'lmadi.`, test: createdTest };
+          return { success: false, message: `Test #${createdTest.id} yaratildi, lekin kanallarga yuborib bo'lmadi: ${publishResult.summary}`, test: createdTest };
         }
       } else {
         await repository.updateTestStatus(createdTest.id, 'pending_approval');
@@ -98,31 +99,67 @@ export class Agent {
     return { success: false, message: 'Test yaratishda max urinishlar tugadi.' };
   }
 
-  async publishTestToTelegram(test: Test): Promise<{ success: boolean; messageId?: number }> {
+  async publishTestToTelegram(
+    test: Test,
+    targetChannelId?: string
+  ): Promise<{ success: boolean; messageId?: number; summary: string }> {
     const { getBot } = await import('../bot/bot');
     const bot = getBot();
 
-    if (!bot || !env.CHANNEL_ID) {
-      logger.warn('Bot token or CHANNEL_ID not configured. Skipping live telegram post.');
-      return { success: false };
+    if (!bot) {
+      logger.warn('Bot token not configured. Skipping telegram post.');
+      return { success: false, summary: 'Bot token mavjud emas' };
     }
 
-    try {
-      const messageText = formatter.formatPostText(test);
-      const keyboard = getChannelQuizKeyboard(test.id);
+    // Determine target channels
+    let targets: { channelId: string; title: string }[] = [];
 
-      logger.info(`Publishing full text quiz with inline choice buttons to channel ${env.CHANNEL_ID}...`);
+    if (targetChannelId && targetChannelId !== 'all') {
+      targets = [{ channelId: targetChannelId, title: targetChannelId }];
+    } else {
+      const activeChannels = await repository.getActiveChannels();
+      if (activeChannels.length > 0) {
+        targets = activeChannels.map((c) => ({ channelId: c.channelId, title: c.title || c.channelId }));
+      } else if (env.CHANNEL_ID) {
+        targets = [{ channelId: env.CHANNEL_ID, title: env.CHANNEL_ID }];
+      }
+    }
 
-      const msg = await bot.api.sendMessage(env.CHANNEL_ID, messageText, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      });
+    if (targets.length === 0) {
+      logger.warn('No active channels available to post test.');
+      return { success: false, summary: 'Hech qanday faol kanal topilmadi. Avval kanal qo‘shing yoki faollashtiring.' };
+    }
 
-      logger.info(`Published Text Quiz to channel ${env.CHANNEL_ID}. MsgID: ${msg.message_id}`);
-      return { success: true, messageId: msg.message_id };
-    } catch (error) {
-      logger.error(`Error publishing Quiz to Telegram channel: ${(error as Error).message}`);
-      return { success: false };
+    const keyboard = getChannelQuizKeyboard(test.id);
+    const successfulChannels: string[] = [];
+    const failedChannels: string[] = [];
+    let firstMessageId: number | undefined;
+
+    for (const target of targets) {
+      try {
+        const postText = formatter.formatPostText(test, target.channelId);
+        logger.info(`Publishing text quiz to channel '${target.channelId}'...`);
+
+        const msg = await bot.api.sendMessage(target.channelId, postText, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        });
+
+        successfulChannels.push(target.title || target.channelId);
+        if (!firstMessageId) firstMessageId = msg.message_id;
+      } catch (error: any) {
+        logger.error(`Error publishing to channel '${target.channelId}': ${error?.message || error}`);
+        failedChannels.push(target.title || target.channelId);
+      }
+    }
+
+    if (successfulChannels.length > 0) {
+      const summary = `Muvaffaqiyatli: ${successfulChannels.join(', ')}` +
+        (failedChannels.length > 0 ? ` | Xatolik: ${failedChannels.join(', ')}` : '');
+      return { success: true, messageId: firstMessageId, summary };
+    } else {
+      const summary = `Barcha kanallarda xatolik yuz berdi: ${failedChannels.join(', ')}`;
+      return { success: false, summary };
     }
   }
 }

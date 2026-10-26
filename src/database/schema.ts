@@ -19,6 +19,53 @@ export interface CreateTestInput {
 }
 
 export class Repository {
+  // --- Channel Management ---
+  async getAllChannels() {
+    return await prisma.channel.findMany({
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  async getActiveChannels() {
+    return await prisma.channel.findMany({
+      where: { isActive: true },
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  async getChannelById(id: number) {
+    return await prisma.channel.findUnique({ where: { id } });
+  }
+
+  async getChannelByUsername(channelId: string) {
+    return await prisma.channel.findUnique({ where: { channelId } });
+  }
+
+  async addChannel(channelId: string, title: string = '') {
+    return await prisma.channel.upsert({
+      where: { channelId },
+      update: { title, isActive: true },
+      create: {
+        channelId,
+        title: title || channelId,
+        isActive: true,
+      },
+    });
+  }
+
+  async toggleChannelActive(id: number) {
+    const channel = await prisma.channel.findUnique({ where: { id } });
+    if (!channel) return null;
+    return await prisma.channel.update({
+      where: { id },
+      data: { isActive: !channel.isActive },
+    });
+  }
+
+  async deleteChannel(id: number) {
+    return await prisma.channel.delete({ where: { id } });
+  }
+
   // --- Test CRUD ---
   async createTest(data: CreateTestInput) {
     return await prisma.test.create({
@@ -157,6 +204,8 @@ export class Repository {
       rejectedCount,
       topicCounts,
       statsGrouped,
+      totalChannels,
+      activeChannels,
     ] = await Promise.all([
       prisma.test.count({ where: { createdAt: { gte: todayStart }, isAuto: true } }),
       prisma.test.count({ where: { createdAt: { gte: todayStart }, isAuto: false } }),
@@ -168,6 +217,8 @@ export class Repository {
         by: ['metricName'],
         _sum: { metricValue: true },
       }),
+      prisma.channel.count(),
+      prisma.channel.count({ where: { isActive: true } }),
     ]);
 
     let mostUsedTopic = 'N/A';
@@ -197,6 +248,8 @@ export class Repository {
       aiGenerationCount: statMap['ai_generation'] || 0,
       imageGenerationCount: statMap['image_generation'] || 0,
       duplicatePreventedCount: statMap['duplicate_prevented'] || 0,
+      totalChannels,
+      activeChannels,
     };
   }
 }

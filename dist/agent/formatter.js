@@ -3,9 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatter = exports.Formatter = void 0;
 const topicSelector_1 = require("./topicSelector");
 class Formatter {
-    formatPostText(test) {
+    formatPostText(test, channelPromo) {
         const icon = topicSelector_1.TOPIC_ICONS[test.topic || ''] || '⚖️';
         const testIdStr = test.id ? ` #${test.id}` : '';
+        const channelTag = channelPromo ? channelPromo : '@Huquq_study';
         return (`<b>${icon} HUQUQIY TEST${testIdStr}</b>\n\n` +
             `📌 <b>Mavzu:</b> ${test.topic}\n\n` +
             `❓ <b>SAVOL:</b>\n${test.question}\n\n` +
@@ -14,7 +15,7 @@ class Formatter {
             `🆎 <b>C)</b> ${test.optionC}\n` +
             `🆓 <b>D)</b> ${test.optionD}\n\n` +
             `👇 <i>Javobingizni pastdagi [ A ] [ B ] [ C ] [ D ] tugmalarini bosib tekshiring!</i>\n\n` +
-            `📢 <b>Kanal:</b> @Huquq_study\n` +
+            `📢 <b>Kanal:</b> ${channelTag}\n` +
             `🤖 <b>Bot:</b> @Huquqchi_bot`);
     }
     formatPreviewText(test) {

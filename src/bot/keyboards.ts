@@ -1,12 +1,13 @@
 import { Keyboard, InlineKeyboard } from 'grammy';
 import { LEGAL_TOPICS, TOPIC_ICONS } from '../agent/topicSelector';
+import { Channel } from '@prisma/client';
 
 export function getMainAdminKeyboard(): Keyboard {
   return new Keyboard()
     .text('➕ YANGI TEST').text('🚀 HOZIR JOYLASH').row()
-    .text('⏰ AVTO POST').text('📚 MAVZULAR').row()
-    .text('📝 TESTLAR').text('📊 STATISTIKA').row()
-    .text('⚙️ SOZLAMALAR')
+    .text('📢 KANALLAR').text('⏰ AVTO POST').row()
+    .text('📚 MAVZULAR').text('📝 TESTLAR').row()
+    .text('📊 STATISTIKA').text('⚙️ SOZLAMALAR')
     .resized()
     .persistent();
 }
@@ -27,6 +28,36 @@ export function getPreviewKeyboard(testId: number): InlineKeyboard {
     .text('🚀 KANALGA JOYLASH', `publish:${testId}`).row()
     .text('🔄 QAYTA YARATISH', `regen:${testId}`).row()
     .text('❌ BEKOR QILISH', `reject:${testId}`);
+}
+
+export function getPublishTargetKeyboard(testId: number, activeChannels: Channel[]): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  kb.text(`🌐 Barcha faol kanallarga (${activeChannels.length} ta)`, `pub_to:${testId}:all`).row();
+  for (const ch of activeChannels) {
+    kb.text(`📢 ${ch.title || ch.channelId}`, `pub_to:${testId}:${ch.id}`).row();
+  }
+  kb.text('❌ Bekor qilish', 'action:cancel');
+  return kb;
+}
+
+export function getChannelsManagementKeyboard(channels: Channel[]): InlineKeyboard {
+  const kb = new InlineKeyboard();
+
+  if (channels.length > 0) {
+    for (const ch of channels) {
+      const statusIcon = ch.isActive ? '🟢' : '⏸️';
+      const actionText = ch.isActive ? 'Pauza qilish' : 'Faollashtirish';
+      kb.text(
+        `${statusIcon} ${ch.title || ch.channelId} (${actionText})`,
+        `ch_toggle:${ch.id}`
+      );
+      kb.text('🗑️', `ch_del:${ch.id}`).row();
+    }
+  }
+
+  kb.text('➕ Kanal qo‘shish', 'ch_add').row();
+  kb.text('🔄 Yangilash', 'ch_refresh').text('🔙 Bosh menyu', 'admin_menu');
+  return kb;
 }
 
 export function getAutoPostKeyboard(isEnabled: boolean, quietEnabled: boolean, peakEnabled: boolean): InlineKeyboard {

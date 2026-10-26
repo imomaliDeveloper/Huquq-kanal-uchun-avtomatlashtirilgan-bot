@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMainAdminKeyboard = getMainAdminKeyboard;
 exports.getTopicPickerKeyboard = getTopicPickerKeyboard;
 exports.getPreviewKeyboard = getPreviewKeyboard;
+exports.getPublishTargetKeyboard = getPublishTargetKeyboard;
+exports.getChannelsManagementKeyboard = getChannelsManagementKeyboard;
 exports.getAutoPostKeyboard = getAutoPostKeyboard;
 exports.getIntervalPickerKeyboard = getIntervalPickerKeyboard;
 exports.getHistoryFilterKeyboard = getHistoryFilterKeyboard;
@@ -12,9 +14,9 @@ const topicSelector_1 = require("../agent/topicSelector");
 function getMainAdminKeyboard() {
     return new grammy_1.Keyboard()
         .text('➕ YANGI TEST').text('🚀 HOZIR JOYLASH').row()
-        .text('⏰ AVTO POST').text('📚 MAVZULAR').row()
-        .text('📝 TESTLAR').text('📊 STATISTIKA').row()
-        .text('⚙️ SOZLAMALAR')
+        .text('📢 KANALLAR').text('⏰ AVTO POST').row()
+        .text('📚 MAVZULAR').text('📝 TESTLAR').row()
+        .text('📊 STATISTIKA').text('⚙️ SOZLAMALAR')
         .resized()
         .persistent();
 }
@@ -33,6 +35,29 @@ function getPreviewKeyboard(testId) {
         .text('🚀 KANALGA JOYLASH', `publish:${testId}`).row()
         .text('🔄 QAYTA YARATISH', `regen:${testId}`).row()
         .text('❌ BEKOR QILISH', `reject:${testId}`);
+}
+function getPublishTargetKeyboard(testId, activeChannels) {
+    const kb = new grammy_1.InlineKeyboard();
+    kb.text(`🌐 Barcha faol kanallarga (${activeChannels.length} ta)`, `pub_to:${testId}:all`).row();
+    for (const ch of activeChannels) {
+        kb.text(`📢 ${ch.title || ch.channelId}`, `pub_to:${testId}:${ch.id}`).row();
+    }
+    kb.text('❌ Bekor qilish', 'action:cancel');
+    return kb;
+}
+function getChannelsManagementKeyboard(channels) {
+    const kb = new grammy_1.InlineKeyboard();
+    if (channels.length > 0) {
+        for (const ch of channels) {
+            const statusIcon = ch.isActive ? '🟢' : '⏸️';
+            const actionText = ch.isActive ? 'Pauza qilish' : 'Faollashtirish';
+            kb.text(`${statusIcon} ${ch.title || ch.channelId} (${actionText})`, `ch_toggle:${ch.id}`);
+            kb.text('🗑️', `ch_del:${ch.id}`).row();
+        }
+    }
+    kb.text('➕ Kanal qo‘shish', 'ch_add').row();
+    kb.text('🔄 Yangilash', 'ch_refresh').text('🔙 Bosh menyu', 'admin_menu');
+    return kb;
 }
 function getAutoPostKeyboard(isEnabled, quietEnabled, peakEnabled) {
     const toggleBtnText = isEnabled ? '🔴 AVTO-POSTNI O‘CHIRISH' : '🟢 AVTO-POSTNI YOQISH';

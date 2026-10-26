@@ -20,6 +20,15 @@ async function ensureDatabaseSchema() {
         await exports.prisma.$connect();
         // Auto-create tables if they don't exist in SQLite
         await exports.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Channel" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "channelId" TEXT UNIQUE NOT NULL,
+        "title" TEXT NOT NULL DEFAULT '',
+        "isActive" BOOLEAN NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+        await exports.prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Test" (
         "id" INTEGER PRIMARY KEY AUTOINCREMENT,
         "topic" TEXT NOT NULL,
@@ -56,7 +65,24 @@ async function ensureDatabaseSchema() {
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
-        logger_1.logger.info('✅ Database schema and SQLite tables (Test, Setting, Stat) verified/created successfully.');
+        // Auto-seed default channel if empty and env.CHANNEL_ID is provided
+        try {
+            const channelCount = await exports.prisma.channel.count();
+            if (channelCount === 0 && env_1.env.CHANNEL_ID) {
+                await exports.prisma.channel.create({
+                    data: {
+                        channelId: env_1.env.CHANNEL_ID,
+                        title: env_1.env.CHANNEL_ID,
+                        isActive: true,
+                    },
+                });
+                logger_1.logger.info(`Initial default channel '${env_1.env.CHANNEL_ID}' registered in database.`);
+            }
+        }
+        catch (e) {
+            logger_1.logger.warn(`Could not seed initial channel: ${e?.message || e}`);
+        }
+        logger_1.logger.info('✅ Database schema and SQLite tables (Channel, Test, Setting, Stat) verified/created successfully.');
     }
     catch (err) {
         logger_1.logger.error(`Database auto-migration warning: ${err?.message || err}`);

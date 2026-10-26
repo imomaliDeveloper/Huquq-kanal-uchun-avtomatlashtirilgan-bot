@@ -6,6 +6,7 @@ const agent_1 = require("../agent/agent");
 const schema_1 = require("../database/schema");
 const scheduler_1 = require("../scheduler/scheduler");
 const keyboards_1 = require("./keyboards");
+const admin_1 = require("./admin");
 const topicSelector_1 = require("../agent/topicSelector");
 const env_1 = require("../config/env");
 const logger_1 = require("../utils/logger");
@@ -29,10 +30,53 @@ exports.commandsComposer.use(async (ctx, next) => {
     }
     await next();
 });
+// Admin interactive state interceptor (e.g. adding channel)
+exports.commandsComposer.on('message:text', async (ctx, next) => {
+    const userId = ctx.from?.id;
+    const text = ctx.message.text.trim();
+    if (userId && admin_1.adminState[userId]?.step === 'awaiting_channel_id') {
+        if (text === '/cancel' || text.toLowerCase() === 'bekor qilish') {
+            delete admin_1.adminState[userId];
+            await ctx.reply('❌ Kanal qo‘shish bekor qilindi.', { reply_markup: (0, keyboards_1.getMainAdminKeyboard)() });
+            return;
+        }
+        let cleanId = text;
+        if (cleanId.startsWith('https://t.me/'))
+            cleanId = '@' + cleanId.replace('https://t.me/', '');
+        if (cleanId.startsWith('t.me/'))
+            cleanId = '@' + cleanId.replace('t.me/', '');
+        if (!cleanId.startsWith('@') && !cleanId.startsWith('-'))
+            cleanId = '@' + cleanId;
+        await ctx.reply('⏳ Kanal tekshirilmoqda, iltimos kuting...');
+        try {
+            const chat = await ctx.api.getChat(cleanId);
+            const title = chat.title || cleanId;
+            await schema_1.repository.addChannel(cleanId, title);
+            delete admin_1.adminState[userId];
+            await ctx.reply(`✅ <b>Kanal muvaffaqiyatli qo‘shildi va faollashtirildi!</b>\n\n` +
+                `📌 <b>Nomi:</b> ${title}\n` +
+                `🆔 <b>Manzili:</b> <code>${cleanId}</code>\n\n` +
+                `Endi ushbu kanalga ham yangi testlar avtomatik va qo'lda joylanadi.`, { reply_markup: (0, keyboards_1.getMainAdminKeyboard)(), parse_mode: 'HTML' });
+            await (0, admin_1.renderChannelsCard)(ctx);
+            return;
+        }
+        catch (err) {
+            await ctx.reply(`❌ <b>Kanalga ulanib bo‘lmadi!</b>\n\n` +
+                `<i>Xatolik:</i> ${err?.message || err}\n\n` +
+                `⚠️ <b>Quyidagilarni tekshiring:</b>\n` +
+                `1. Botni ushbu kanalga <b>Administrator</b> qilib qo‘shganingizga ishonch hosil qiling.\n` +
+                `2. Botga <b>Xabarlar joylash (Post Messages)</b> ruxsati berilgan bo‘lishi shart.\n` +
+                `3. Kanal username yoki ID-si to‘g‘ri yozilganini tekshiring.\n\n` +
+                `Qaytadan yuboring yoki bekor qilish uchun /cancel deb yozing:`, { parse_mode: 'HTML' });
+            return;
+        }
+    }
+    await next();
+});
 exports.commandsComposer.command('start', async (ctx) => {
     const text = (`🤖 <b>O‘zbekiston Huquqi AI Autonomous Content Agent Botiga Xush Kelibsiz!</b>\n\n` +
         `Ushbu bot avtomatik ravishda O‘zbekiston Respublikasi qonunchiligiga oid ` +
-        `professional rasmli testlar tayyorlab, Telegram kanalga joylaydi.\n\n` +
+        `professional testlar tayyorlab, Telegram kanallaringizga joylaydi.\n\n` +
         `Boshqaruv panelini ochish uchun /admin buyrug'ini yuboring.`);
     await ctx.reply(text, { reply_markup: (0, keyboards_1.getMainAdminKeyboard)(), parse_mode: 'HTML' });
 });
@@ -52,10 +96,17 @@ async function renderDashboard(ctx) {
         `📊 <b>Bugungi testlar:</b> ${stats.todayTotalCount} ta (Avto: ${stats.todayAutoCount}, Qo'lda: ${stats.todayManualCount})\n` +
         `📚 <b>Jami testlar:</b> ${stats.totalCount} ta\n` +
         `🤖 <b>AI Agent holati:</b> ${isAuto ? '🟢 ON' : '🔴 OFF'}\n` +
-        `📡 <b>Kanal statusi:</b> CONNECTED (${env_1.env.CHANNEL_ID || 'Kanal'})\n\n` +
+        `📢 <b>Kanallar:</b> ${stats.activeChannels} ta faol (Jami: ${stats.totalChannels} ta)\n\n` +
         `Boshqarish uchun quyidagi tugmalardan foydalaning:`);
     await ctx.reply(dashboard, { reply_markup: (0, keyboards_1.getMainAdminKeyboard)(), parse_mode: 'HTML' });
 }
+// Channels Management
+exports.commandsComposer.hears('📢 KANALLAR', async (ctx) => {
+    await (0, admin_1.renderChannelsCard)(ctx);
+});
+exports.commandsComposer.command(['channels', 'kanallar'], async (ctx) => {
+    await (0, admin_1.renderChannelsCard)(ctx);
+});
 exports.commandsComposer.command('newtest', async (ctx) => {
     await ctx.reply('📚 <b>Test yaratish uchun huquqiy mavzuni tanlang:</b>', {
         reply_markup: (0, keyboards_1.getTopicPickerKeyboard)(),
@@ -79,17 +130,18 @@ async function handlePostNow(ctx) {
         `1. AI mavzu va qonuniy faktlarni izlamoqda...\n` +
         `2. Test va izoh yaratilmoqda...\n` +
         `3. AI Fact-Checker tekshirmoqda...\n` +
-        `4. Telegram kanalga yuborilmoqda...`, { parse_mode: 'HTML' });
+        `4. Telegram kanallarga yuborilmoqda...`, { parse_mode: 'HTML' });
     const result = await agent_1.agent.runPipeline({
         requestedTopic: undefined,
         isAuto: false,
         publishImmediately: true,
     });
     if (result.success && result.test) {
-        const text = (`✅ <b>TEST DARHOL KANALGA JOYLANDI!</b>\n\n` +
+        const text = (`✅ <b>TEST DARHOL KANALLARGA JOYLANDI!</b>\n\n` +
             `<b>Test ID:</b> #${result.test.id}\n` +
             `<b>Mavzu:</b> ${result.test.topic}\n` +
-            `<b>Savol:</b> ${result.test.question.substring(0, 100)}...`);
+            `<b>Savol:</b> ${result.test.question.substring(0, 100)}...\n\n` +
+            `<i>${result.message}</i>`);
         await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, text, { parse_mode: 'HTML' });
     }
     else {
@@ -144,7 +196,8 @@ async function renderStats(ctx) {
         `• Jami yaratilgan testlar: ${stats.totalCount} ta\n` +
         `• Muvaffaqiyatli postlar: ${stats.publishedCount} ta\n` +
         `• AI Test generatsiyalari: ${stats.aiGenerationCount} marta\n` +
-        `• Takroriy (Duplicate) oldi olingan: 🛡 ${stats.duplicatePreventedCount} ta\n\n` +
+        `• Takroriy (Duplicate) oldi olingan: 🛡 ${stats.duplicatePreventedCount} ta\n` +
+        `• Faol kanallar: 📢 ${stats.activeChannels} / ${stats.totalChannels} ta\n\n` +
         `📚 <b>Mavzular bo'yicha taqsimot:</b>\n${topicStr}`);
     await ctx.reply(text, { reply_markup: (0, keyboards_1.getMainAdminKeyboard)(), parse_mode: 'HTML' });
 }
@@ -173,7 +226,7 @@ exports.commandsComposer.hears('📚 MAVZULAR', async (ctx) => {
     topicSelector_1.LEGAL_TOPICS.forEach((top, idx) => {
         const icon = topicSelector_1.TOPIC_ICONS[top] || '⚖️';
         const cnt = counts[top] || 0;
-        lines.push(`${idx + 1}. ${icon} <b>{top}</b> (${cnt} ta post)`);
+        lines.push(`${idx + 1}. ${icon} <b>${top}</b> (${cnt} ta post)`);
     });
     await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
 });
