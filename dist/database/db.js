@@ -76,6 +76,35 @@ async function ensureDatabaseSchema() {
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+        await exports.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Student" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "telegramId" TEXT UNIQUE NOT NULL,
+        "fullName" TEXT NOT NULL,
+        "username" TEXT DEFAULT '',
+        "phone" TEXT DEFAULT '',
+        "grade" TEXT DEFAULT '',
+        "isRegistered" BOOLEAN NOT NULL DEFAULT 0,
+        "isActive" BOOLEAN NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+        await exports.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Submission" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "testId" INTEGER NOT NULL,
+        "studentId" INTEGER NOT NULL,
+        "selectedOption" INTEGER NOT NULL,
+        "isCorrect" BOOLEAN NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Submission_testId_fkey" FOREIGN KEY ("testId") REFERENCES "Test" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT "Submission_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      );
+    `);
+        await exports.prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "Submission_testId_studentId_key" ON "Submission"("testId", "studentId");
+    `);
         // Auto-seed default channel if empty and env.CHANNEL_ID is provided
         try {
             const channelCount = await exports.prisma.channel.count();
@@ -93,7 +122,7 @@ async function ensureDatabaseSchema() {
         catch (e) {
             logger_1.logger.warn(`Could not seed initial channel: ${e?.message || e}`);
         }
-        logger_1.logger.info('✅ Database schema and SQLite tables (Channel, Test, Setting, Stat) verified/created successfully.');
+        logger_1.logger.info('✅ Database schema and SQLite tables (Channel, Test, Setting, Stat, Student, Submission) verified/created successfully.');
     }
     catch (err) {
         logger_1.logger.error(`Database auto-migration warning: ${err?.message || err}`);
