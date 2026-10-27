@@ -9,10 +9,13 @@ const env_1 = require("../config/env");
 const schema_1 = require("../database/schema");
 const agent_1 = require("../agent/agent");
 const logger_1 = require("../utils/logger");
+const monitoring_1 = require("../bot/monitoring");
 class SchedulerManager {
     currentTask = null;
+    dailyStatsTask = null;
     async start() {
         await this.syncScheduleFromDb();
+        await this.syncDailyStatsScheduleFromDb();
     }
     async isQuietHours() {
         const quietEnabledStr = await schema_1.repository.getSetting('quiet_hours_enabled', String(env_1.env.QUIET_HOURS_ENABLED));
@@ -97,6 +100,38 @@ class SchedulerManager {
         }, {
             timezone: env_1.env.TIMEZONE,
         });
+    }
+    // --- Daily Student Statistics Cron Schedule ---
+    async syncDailyStatsScheduleFromDb() {
+        const dailyEnabledStr = await schema_1.repository.getSetting('daily_stats_enabled', 'true');
+        const isDailyEnabled = dailyEnabledStr.toLowerCase() === 'true';
+        if (this.dailyStatsTask) {
+            this.dailyStatsTask.stop();
+            this.dailyStatsTask = null;
+        }
+        if (!isDailyEnabled) {
+            logger_1.logger.info('Daily student statistics auto-post is DISABLED.');
+            return;
+        }
+        // Twice daily: Lunch time (13:00) and Evening (21:00) Tashkent time
+        const cronExpr = '0 13,21 * * *';
+        logger_1.logger.info(`Scheduling Twice-Daily Student Statistics post at 13:00 (Lunch) & 21:00 (Evening) (${cronExpr}) in ${env_1.env.TIMEZONE}`);
+        this.dailyStatsTask = node_cron_1.default.schedule(cronExpr, async () => {
+            logger_1.logger.info('node-cron triggered Twice-Daily Student Statistics posting...');
+            try {
+                const result = await (0, monitoring_1.publishDailyStatsToChannels)();
+                logger_1.logger.info(`Student Statistics publish result: ${result.summary}`);
+            }
+            catch (err) {
+                logger_1.logger.error(`Error publishing student statistics: ${err?.message || err}`);
+            }
+        }, {
+            timezone: env_1.env.TIMEZONE,
+        });
+    }
+    async setDailyStatsStatus(enabled) {
+        await schema_1.repository.setSetting('daily_stats_enabled', String(enabled));
+        await this.syncDailyStatsScheduleFromDb();
     }
     async setIntervalMinutes(minutes) {
         await schema_1.repository.setSetting('post_interval_minutes', String(minutes));

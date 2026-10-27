@@ -17,10 +17,10 @@ model Channel {
 }
 
 model Test {
-  id                Int       @id @default(autoincrement())
+  id                Int          @id @default(autoincrement())
   topic             String
   question          String
-  questionHash      String    @unique
+  questionHash      String       @unique
   optionA           String
   optionB           String
   optionC           String
@@ -28,14 +28,43 @@ model Test {
   correctAnswer     Int
   explanation       String
   legalSource       String
-  sourceUrl         String?   @default("")
-  imagePath         String?   @default("")
+  sourceUrl         String?      @default("")
+  imagePath         String?      @default("")
   telegramMessageId Int?
   telegramPollId    String?
-  isAuto            Boolean   @default(true)
-  status            String    @default("published")
-  createdAt         DateTime  @default(now())
+  isAuto            Boolean      @default(true)
+  status            String       @default("published")
+  createdAt         DateTime     @default(now())
   postedAt          DateTime?
+  submissions       Submission[]
+}
+
+model Student {
+  id           Int          @id @default(autoincrement())
+  telegramId   String       @unique
+  fullName     String
+  username     String?
+  phone        String?
+  grade        String?      @default("")
+  isRegistered Boolean      @default(false)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  submissions  Submission[]
+}
+
+model Submission {
+  id             Int      @id @default(autoincrement())
+  testId         Int
+  studentId      Int
+  selectedOption Int
+  isCorrect      Boolean
+  createdAt      DateTime @default(now())
+
+  test           Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([testId, studentId])
 }
 
 model Setting {

@@ -2,6 +2,7 @@ import { Bot, GrammyError, HttpError } from 'grammy';
 import { env } from '../config/env';
 import { commandsComposer } from './commands';
 import { adminComposer } from './admin';
+import { monitoringComposer } from './monitoring';
 import { logger } from '../utils/logger';
 
 let botInstance: Bot | null = null;
@@ -10,6 +11,7 @@ export function getBot(): Bot | null {
   if (!botInstance && env.BOT_TOKEN) {
     try {
       botInstance = new Bot(env.BOT_TOKEN);
+      botInstance.use(monitoringComposer);
       botInstance.use(commandsComposer);
       botInstance.use(adminComposer);
 

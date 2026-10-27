@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMainAdminKeyboard = getMainAdminKeyboard;
+exports.getStudentKeyboard = getStudentKeyboard;
 exports.getTopicPickerKeyboard = getTopicPickerKeyboard;
 exports.getPreviewKeyboard = getPreviewKeyboard;
 exports.getPublishTargetKeyboard = getPublishTargetKeyboard;
@@ -9,14 +10,26 @@ exports.getAutoPostKeyboard = getAutoPostKeyboard;
 exports.getIntervalPickerKeyboard = getIntervalPickerKeyboard;
 exports.getHistoryFilterKeyboard = getHistoryFilterKeyboard;
 exports.getChannelQuizKeyboard = getChannelQuizKeyboard;
+exports.getMonitoringTestPickerKeyboard = getMonitoringTestPickerKeyboard;
+exports.getMonitoringKeyboard = getMonitoringKeyboard;
+exports.getStudentsListKeyboard = getStudentsListKeyboard;
+exports.getStudentDetailKeyboard = getStudentDetailKeyboard;
 const grammy_1 = require("grammy");
 const topicSelector_1 = require("../agent/topicSelector");
 function getMainAdminKeyboard() {
     return new grammy_1.Keyboard()
         .text('➕ YANGI TEST').text('🚀 HOZIR JOYLASH').row()
+        .text('👥 O‘QUVCHILAR NAZORATI').text('📊 MONITORING (KIM YECHDI?)').row()
         .text('📢 KANALLAR').text('⏰ AVTO POST').row()
-        .text('📚 MAVZULAR').text('📝 TESTLAR').row()
+        .text('🏆 REYTING').text('📝 TESTLAR').row()
         .text('📊 STATISTIKA').text('⚙️ SOZLAMALAR')
+        .resized()
+        .persistent();
+}
+function getStudentKeyboard() {
+    return new grammy_1.Keyboard()
+        .text('📝 YECHILMAGAN TESTLAR').text('📊 MENING NATIJALARIM').row()
+        .text('🏆 REYTING').text('👤 PROFILIM')
         .resized()
         .persistent();
 }
@@ -91,7 +104,6 @@ function getHistoryFilterKeyboard() {
         .text('📚 Barcha testlar', 'hist:all');
 }
 function getChannelQuizKeyboard(testId, channelLink) {
-    // Clean, modern, elegant choice buttons
     const kb = new grammy_1.InlineKeyboard()
         .text('🔹 A', `ans:${testId}:0`).text('🔹 B', `ans:${testId}:1`).row()
         .text('🔹 C', `ans:${testId}:2`).text('🔹 D', `ans:${testId}:3`);
@@ -103,5 +115,48 @@ function getChannelQuizKeyboard(testId, channelLink) {
             kb.row().url('📢 Kanalga a’zo bo‘lish ↗️', url);
         }
     }
+    return kb;
+}
+// --- Monitoring & Student Management Keyboards ---
+function getMonitoringTestPickerKeyboard(tests) {
+    const kb = new grammy_1.InlineKeyboard();
+    kb.text('📢 KUNLIK STATISTIKANI KANALGA CHIQARISH ↗️', 'post_daily_stats').row();
+    for (const t of tests) {
+        const title = `#${t.id}: ${t.topic} (${t.question.substring(0, 30)}...)`;
+        kb.text(title, `mon_view:${t.id}`).row();
+    }
+    kb.text('🔙 Bosh menyu', 'admin_menu');
+    return kb;
+}
+function getMonitoringKeyboard(testId, unsolvedCount) {
+    const kb = new grammy_1.InlineKeyboard()
+        .text('✅ Yechganlar ro‘yxati', `mon_solved:${testId}`)
+        .text('❌ Yechmaganlar ro‘yxati', `mon_unsolved:${testId}`).row();
+    if (unsolvedCount > 0) {
+        kb.text(`🔔 Yechmaganlarga eslatma yuborish (${unsolvedCount} ta)`, `mon_remind:${testId}`).row();
+    }
+    kb.text('🔄 Yangilash', `mon_view:${testId}`)
+        .text('🔙 Testlar ro‘yxati', 'mon_list');
+    return kb;
+}
+function getStudentsListKeyboard(students) {
+    const kb = new grammy_1.InlineKeyboard();
+    for (const st of students.slice(0, 15)) {
+        const status = st.isActive ? '🟢' : '⏸️';
+        const label = `${status} ${st.fullName || st.telegramId}${st.grade ? ` [${st.grade}]` : ''}`;
+        kb.text(label, `stu_view:${st.id}`).row();
+    }
+    kb.text('➕ O‘quvchi qo‘shish', 'stu_add')
+        .text('📊 Umumiy hisobot', 'stu_report').row()
+        .text('🔙 Bosh menyu', 'admin_menu');
+    return kb;
+}
+function getStudentDetailKeyboard(studentId, isActive) {
+    const kb = new grammy_1.InlineKeyboard();
+    const toggleText = isActive ? '⏸️ Pauza qilish' : '🟢 Faollashtirish';
+    kb.text(toggleText, `stu_toggle:${studentId}`)
+        .text('✉️ Xabar yuborish', `stu_msg:${studentId}`).row()
+        .text('🗑️ O‘chirish', `stu_del:${studentId}`)
+        .text('🔙 Ro‘yxatga qaytish', 'stu_list');
     return kb;
 }

@@ -55,55 +55,6 @@ export async function renderChannelsCard(ctx: any) {
 adminComposer.on('callback_query:data', async (ctx) => {
   const data = ctx.callbackQuery.data;
 
-  // Interactive Quiz Option Answer Callback (ans:testId:optionIdx)
-  if (data.startsWith('ans:')) {
-    const parts = data.split(':');
-    const testId = parseInt(parts[1], 10);
-    const chosenIdx = parseInt(parts[2], 10);
-
-    const testItem = await repository.getTestById(testId);
-    if (!testItem) {
-      await ctx.answerCallbackQuery({ text: '⚠️ Test topilmadi.', show_alert: true });
-      return;
-    }
-
-    const isCorrect = chosenIdx === testItem.correctAnswer;
-    const letters = ['A', 'B', 'C', 'D'];
-    const optionsText = [testItem.optionA, testItem.optionB, testItem.optionC, testItem.optionD];
-
-    const correctLetter = letters[testItem.correctAnswer] || 'A';
-    const correctOptionContent = optionsText[testItem.correctAnswer] || '';
-    const chosenLetter = letters[chosenIdx] || 'A';
-
-    let alertMsg = '';
-    if (isCorrect) {
-      alertMsg = (
-        `✅ JAVOBINGIZ TO'G'RI! (${correctLetter})\n\n` +
-        `✅ Javob: ${correctOptionContent}\n\n` +
-        `📚 Izoh: ${testItem.explanation}\n` +
-        `⚖️ Manba: ${testItem.legalSource}`
-      );
-    } else {
-      alertMsg = (
-        `❌ NOTO'G'RI JAVOB! (Siz: ${chosenLetter}, To'g'ri: ${correctLetter})\n\n` +
-        `✅ To'g'ri javob: ${correctLetter}) ${correctOptionContent}\n\n` +
-        `📚 Izoh: ${testItem.explanation}\n` +
-        `⚖️ Manba: ${testItem.legalSource}`
-      );
-    }
-
-    // Telegram pop-up dialog limit is 200 chars
-    if (alertMsg.length > 200) {
-      alertMsg = alertMsg.substring(0, 195) + '...';
-    }
-
-    await ctx.answerCallbackQuery({
-      text: alertMsg,
-      show_alert: true,
-    });
-    return;
-  }
-
   // Topic Selection Callback
   if (data.startsWith('topic:')) {
     const topicKey = data.split(':', 2)[1];

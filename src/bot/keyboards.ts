@@ -1,13 +1,22 @@
 import { Keyboard, InlineKeyboard } from 'grammy';
 import { LEGAL_TOPICS, TOPIC_ICONS } from '../agent/topicSelector';
-import { Channel } from '@prisma/client';
+import { Channel, Student, Test } from '@prisma/client';
 
 export function getMainAdminKeyboard(): Keyboard {
   return new Keyboard()
     .text('➕ YANGI TEST').text('🚀 HOZIR JOYLASH').row()
+    .text('👥 O‘QUVCHILAR NAZORATI').text('📊 MONITORING (KIM YECHDI?)').row()
     .text('📢 KANALLAR').text('⏰ AVTO POST').row()
-    .text('📚 MAVZULAR').text('📝 TESTLAR').row()
+    .text('🏆 REYTING').text('📝 TESTLAR').row()
     .text('📊 STATISTIKA').text('⚙️ SOZLAMALAR')
+    .resized()
+    .persistent();
+}
+
+export function getStudentKeyboard(): Keyboard {
+  return new Keyboard()
+    .text('📝 YECHILMAGAN TESTLAR').text('📊 MENING NATIJALARIM').row()
+    .text('🏆 REYTING').text('👤 PROFILIM')
     .resized()
     .persistent();
 }
@@ -98,7 +107,6 @@ export function getHistoryFilterKeyboard(): InlineKeyboard {
 }
 
 export function getChannelQuizKeyboard(testId: number, channelLink?: string): InlineKeyboard {
-  // Clean, modern, elegant choice buttons
   const kb = new InlineKeyboard()
     .text('🔹 A', `ans:${testId}:0`).text('🔹 B', `ans:${testId}:1`).row()
     .text('🔹 C', `ans:${testId}:2`).text('🔹 D', `ans:${testId}:3`);
@@ -110,6 +118,65 @@ export function getChannelQuizKeyboard(testId: number, channelLink?: string): In
       kb.row().url('📢 Kanalga a’zo bo‘lish ↗️', url);
     }
   }
+
+  return kb;
+}
+
+// --- Monitoring & Student Management Keyboards ---
+
+export function getMonitoringTestPickerKeyboard(tests: Test[]): InlineKeyboard {
+  const kb = new InlineKeyboard();
+
+  kb.text('📢 KUNLIK STATISTIKANI KANALGA CHIQARISH ↗️', 'post_daily_stats').row();
+
+  for (const t of tests) {
+    const title = `#${t.id}: ${t.topic} (${t.question.substring(0, 30)}...)`;
+    kb.text(title, `mon_view:${t.id}`).row();
+  }
+
+  kb.text('🔙 Bosh menyu', 'admin_menu');
+  return kb;
+}
+
+export function getMonitoringKeyboard(testId: number, unsolvedCount: number): InlineKeyboard {
+  const kb = new InlineKeyboard()
+    .text('✅ Yechganlar ro‘yxati', `mon_solved:${testId}`)
+    .text('❌ Yechmaganlar ro‘yxati', `mon_unsolved:${testId}`).row();
+
+  if (unsolvedCount > 0) {
+    kb.text(`🔔 Yechmaganlarga eslatma yuborish (${unsolvedCount} ta)`, `mon_remind:${testId}`).row();
+  }
+
+  kb.text('🔄 Yangilash', `mon_view:${testId}`)
+    .text('🔙 Testlar ro‘yxati', 'mon_list');
+
+  return kb;
+}
+
+export function getStudentsListKeyboard(students: Student[]): InlineKeyboard {
+  const kb = new InlineKeyboard();
+
+  for (const st of students.slice(0, 15)) {
+    const status = st.isActive ? '🟢' : '⏸️';
+    const label = `${status} ${st.fullName || st.telegramId}${st.grade ? ` [${st.grade}]` : ''}`;
+    kb.text(label, `stu_view:${st.id}`).row();
+  }
+
+  kb.text('➕ O‘quvchi qo‘shish', 'stu_add')
+    .text('📊 Umumiy hisobot', 'stu_report').row()
+    .text('🔙 Bosh menyu', 'admin_menu');
+
+  return kb;
+}
+
+export function getStudentDetailKeyboard(studentId: number, isActive: boolean): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  const toggleText = isActive ? '⏸️ Pauza qilish' : '🟢 Faollashtirish';
+
+  kb.text(toggleText, `stu_toggle:${studentId}`)
+    .text('✉️ Xabar yuborish', `stu_msg:${studentId}`).row()
+    .text('🗑️ O‘chirish', `stu_del:${studentId}`)
+    .text('🔙 Ro‘yxatga qaytish', 'stu_list');
 
   return kb;
 }

@@ -6,12 +6,14 @@ const grammy_1 = require("grammy");
 const env_1 = require("../config/env");
 const commands_1 = require("./commands");
 const admin_1 = require("./admin");
+const monitoring_1 = require("./monitoring");
 const logger_1 = require("../utils/logger");
 let botInstance = null;
 function getBot() {
     if (!botInstance && env_1.env.BOT_TOKEN) {
         try {
             botInstance = new grammy_1.Bot(env_1.env.BOT_TOKEN);
+            botInstance.use(monitoring_1.monitoringComposer);
             botInstance.use(commands_1.commandsComposer);
             botInstance.use(admin_1.adminComposer);
             // Register Global Error Handler to prevent process crashes

@@ -3,12 +3,15 @@ import { env } from '../config/env';
 import { repository } from '../database/schema';
 import { agent } from '../agent/agent';
 import { logger } from '../utils/logger';
+import { publishDailyStatsToChannels } from '../bot/monitoring';
 
 export class SchedulerManager {
   private currentTask: cron.ScheduledTask | null = null;
+  private dailyStatsTask: cron.ScheduledTask | null = null;
 
   async start(): Promise<void> {
     await this.syncScheduleFromDb();
+    await this.syncDailyStatsScheduleFromDb();
   }
 
   async isQuietHours(): Promise<boolean> {
@@ -104,6 +107,47 @@ export class SchedulerManager {
         timezone: env.TIMEZONE,
       }
     );
+  }
+
+  // --- Daily Student Statistics Cron Schedule ---
+  async syncDailyStatsScheduleFromDb(): Promise<void> {
+    const dailyEnabledStr = await repository.getSetting('daily_stats_enabled', 'true');
+    const isDailyEnabled = dailyEnabledStr.toLowerCase() === 'true';
+
+    if (this.dailyStatsTask) {
+      this.dailyStatsTask.stop();
+      this.dailyStatsTask = null;
+    }
+
+    if (!isDailyEnabled) {
+      logger.info('Daily student statistics auto-post is DISABLED.');
+      return;
+    }
+
+    // Twice daily: Lunch time (13:00) and Evening (21:00) Tashkent time
+    const cronExpr = '0 13,21 * * *';
+    logger.info(`Scheduling Twice-Daily Student Statistics post at 13:00 (Lunch) & 21:00 (Evening) (${cronExpr}) in ${env.TIMEZONE}`);
+
+    this.dailyStatsTask = cron.schedule(
+      cronExpr,
+      async () => {
+        logger.info('node-cron triggered Twice-Daily Student Statistics posting...');
+        try {
+          const result = await publishDailyStatsToChannels();
+          logger.info(`Student Statistics publish result: ${result.summary}`);
+        } catch (err: any) {
+          logger.error(`Error publishing student statistics: ${err?.message || err}`);
+        }
+      },
+      {
+        timezone: env.TIMEZONE,
+      }
+    );
+  }
+
+  async setDailyStatsStatus(enabled: boolean): Promise<void> {
+    await repository.setSetting('daily_stats_enabled', String(enabled));
+    await this.syncDailyStatsScheduleFromDb();
   }
 
   async setIntervalMinutes(minutes: number): Promise<void> {
