@@ -29,7 +29,9 @@ export class Agent {
       ? options.publishImmediately
       : !requireApproval;
 
-    const maxRetries = 3;
+    const maxRetries = 5;
+    let lastErrorReason = 'Nomaʼlum xatolik';
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       logger.info(`Pipeline execution pass ${attempt}/${maxRetries}...`);
 
@@ -40,6 +42,7 @@ export class Agent {
       await repository.recordStat('ai_generation');
       const generated = await testGenerator.generate(topic);
       if (!generated || !generated.question || !generated.options || generated.options.length !== 4) {
+        lastErrorReason = `AI (${env.AI_PROVIDER}) test strukturasini to‘g‘ri qaytarmadi. API kalitini tekshiring.`;
         logger.warn(`Pass ${attempt}: Failed to generate valid quiz structure.`);
         continue;
       }
@@ -47,6 +50,7 @@ export class Agent {
       // 3. Fact Checker
       const { isValid, reason } = await factChecker.check(generated);
       if (!isValid) {
+        lastErrorReason = `Fact Checker rad etdi: ${reason}`;
         logger.warn(`Pass ${attempt}: Fact checker rejected quiz: ${reason}`);
         continue;
       }
@@ -54,6 +58,7 @@ export class Agent {
       // 4. Duplicate Checker
       const { isDup, reason: dupReason } = await duplicateChecker.isDuplicate(generated.question);
       if (isDup) {
+        lastErrorReason = `Takroriy savol (Duplicate): ${dupReason}`;
         logger.warn(`Pass ${attempt}: Duplicate detected (${dupReason}). Retrying with new quiz...`);
         continue;
       }
@@ -96,7 +101,7 @@ export class Agent {
       }
     }
 
-    return { success: false, message: 'Test yaratishda max urinishlar tugadi.' };
+    return { success: false, message: `Test yaratishda urinishlar tugadi. Sabab: ${lastErrorReason}` };
   }
 
   async publishTestToTelegram(

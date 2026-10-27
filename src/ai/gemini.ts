@@ -33,12 +33,11 @@ export class GeminiProvider implements AIProvider {
     }
 
     const candidateModels = Array.from(new Set([
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-pro',
       this.primaryModel,
-      'gemini-3.6-flash',
-      'gemini-2.5-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro-latest',
-    ]));
+    ].filter(Boolean)));
 
     for (const modelName of candidateModels) {
       // 1. SDK Attempt
@@ -115,7 +114,7 @@ export class GeminiProvider implements AIProvider {
       return 'Professional legal concept background visual';
     }
 
-    const candidateModels = [this.primaryModel, 'gemini-3.6-flash', 'gemini-2.5-flash'];
+    const candidateModels = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', this.primaryModel].filter(Boolean);
     for (const modelName of candidateModels) {
       if (this.genAI) {
         try {

@@ -53,7 +53,8 @@ class Agent {
         const shouldPublish = options.publishImmediately !== undefined
             ? options.publishImmediately
             : !requireApproval;
-        const maxRetries = 3;
+        const maxRetries = 5;
+        let lastErrorReason = 'Nomaʼlum xatolik';
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             logger_1.logger.info(`Pipeline execution pass ${attempt}/${maxRetries}...`);
             // 1. Topic Selection
@@ -62,18 +63,21 @@ class Agent {
             await schema_1.repository.recordStat('ai_generation');
             const generated = await testGenerator_1.testGenerator.generate(topic);
             if (!generated || !generated.question || !generated.options || generated.options.length !== 4) {
+                lastErrorReason = `AI (${env_1.env.AI_PROVIDER}) test strukturasini to‘g‘ri qaytarmadi. API kalitini tekshiring.`;
                 logger_1.logger.warn(`Pass ${attempt}: Failed to generate valid quiz structure.`);
                 continue;
             }
             // 3. Fact Checker
             const { isValid, reason } = await factChecker_1.factChecker.check(generated);
             if (!isValid) {
+                lastErrorReason = `Fact Checker rad etdi: ${reason}`;
                 logger_1.logger.warn(`Pass ${attempt}: Fact checker rejected quiz: ${reason}`);
                 continue;
             }
             // 4. Duplicate Checker
             const { isDup, reason: dupReason } = await duplicateChecker_1.duplicateChecker.isDuplicate(generated.question);
             if (isDup) {
+                lastErrorReason = `Takroriy savol (Duplicate): ${dupReason}`;
                 logger_1.logger.warn(`Pass ${attempt}: Duplicate detected (${dupReason}). Retrying with new quiz...`);
                 continue;
             }
@@ -114,7 +118,7 @@ class Agent {
                 return { success: true, message: `Test #${createdTest.id} yaratildi (Admin tasdiqlashi kutilmoqda).`, test: createdTest };
             }
         }
-        return { success: false, message: 'Test yaratishda max urinishlar tugadi.' };
+        return { success: false, message: `Test yaratishda urinishlar tugadi. Sabab: ${lastErrorReason}` };
     }
     async publishTestToTelegram(test, targetChannelId) {
         const { getBot } = await Promise.resolve().then(() => __importStar(require('../bot/bot')));

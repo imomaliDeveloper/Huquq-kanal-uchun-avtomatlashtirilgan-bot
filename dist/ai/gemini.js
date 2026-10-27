@@ -33,12 +33,11 @@ class GeminiProvider {
             logger_1.logger.warn(`⚠️ GEMINI_API_KEY ('${this.apiKey.substring(0, 8)}...') is an OAuth/quota-restricted key. Recommended: get a free Google AI Studio key starting with 'AIzaSy' from https://aistudio.google.com/app/apikey`);
         }
         const candidateModels = Array.from(new Set([
+            'gemini-1.5-flash',
+            'gemini-2.0-flash',
+            'gemini-1.5-pro',
             this.primaryModel,
-            'gemini-3.6-flash',
-            'gemini-2.5-flash',
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-pro-latest',
-        ]));
+        ].filter(Boolean)));
         for (const modelName of candidateModels) {
             // 1. SDK Attempt
             if (this.genAI) {
@@ -111,7 +110,7 @@ class GeminiProvider {
         if (!this.apiKey) {
             return 'Professional legal concept background visual';
         }
-        const candidateModels = [this.primaryModel, 'gemini-3.6-flash', 'gemini-2.5-flash'];
+        const candidateModels = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', this.primaryModel].filter(Boolean);
         for (const modelName of candidateModels) {
             if (this.genAI) {
                 try {
